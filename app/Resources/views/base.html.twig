@@ -2,12 +2,46 @@
 <html>
     <head>
         <meta charset="UTF-8" />
-        <title>{% block title %}Welcome!{% endblock %}</title>
+        <title>{% block title %}{% endblock %} - TheRahaSite</title>
+        <link rel="stylesheet" href="{{ asset('bundles/pinanobootstrap3/css/bootstrap.min.css') }}"/ >
+        <link rel="stylesheet" href="{{ asset('css/raha.css') }}"/ >
+        <link href="//netdna.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         {% block stylesheets %}{% endblock %}
         <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}" />
     </head>
     <body>
-        {% block body %}{% endblock %}
-        {% block javascripts %}{% endblock %}
+        <section class="container">
+        {% block header %}{% include '::head.html.twig' %}{% endblock %}
+        {% block nav %}{% include '::nav.html.twig' %}{% endblock %}
+        {% block carousel %}{% include '::carousel.html.twig' %}{%endblock%}
+            <section class="main-col">
+           
+                {% block body %}{% endblock %}
+            </section>
+            <aside class="sidebar">
+                {% block sidebar %}{% endblock %}
+            </aside>
+
+            <div id="footer">
+                {% block footer %}
+                  Copyright - Raha
+                {% endblock %}
+            </div>
+            
+            
+            {% block javascripts %}{% endblock %}
+            <script src="//code.jquery.com/jquery.min.js"></script>
+            <script src="{{asset('bundles/pinanobootstrap3/js/bootstrap.min.js')}}"></script>
+                 <script type="text/javascript">
+                !function ($) {
+                var $window = $(window)
+
+                $(document).ready(function() {
+                $('.carousel').carousel();
+                });
+                } (window.jQuery)
+            </script>
+        </section>
     </body>
 </html>

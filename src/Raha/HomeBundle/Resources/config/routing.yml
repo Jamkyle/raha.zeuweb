@@ -1,0 +1,15 @@
+raha_home_homepage:
+    pattern:  /
+    defaults: { _controller: RahaHomeBundle:Default:index }
+
+raha_about:
+    pattern:  /about
+    defaults: { _controller: RahaHomeBundle:Default:about }
+    requirements:
+        _method: GET
+
+raha_contact:
+    pattern:  /contact
+    defaults: { _controller: RahaHomeBundle:Default:contact }
+    requirements:
+        _method: GET|POST

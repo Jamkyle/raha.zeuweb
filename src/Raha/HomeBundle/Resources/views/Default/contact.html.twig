@@ -1,0 +1,23 @@
+{% extends 'RahaHomeBundle:Default:layout.html.twig' %}
+{% block title %}Contact{% endblock%}
+
+{% block body %}
+    <header>
+        <h1>Contact TheRahaSite</h1>
+    </header>
+    <p>Voulez-vous nous contacter?</p>
+     <form action="{{ path('raha_contact') }}" method="post" {{ form_enctype(form) }} class="Rahaform" role="form">
+
+        {{ form_errors(form) }}
+        
+        {{ form_row(form.name, { 'label' : 'Nom'})}}
+        {{ form_row(form.email, { 'label' : 'Email' }) }}
+        {{ form_row(form.subject, { 'label' : 'Objet' }) }}
+        {{ form_row(form.body, { 'label' : 'Votre Message' }) }}
+
+        {{ form_rest(form) }}
+
+        <input type="submit" value="Submit" />
+    </form>
+</form>
+{% endblock %}
