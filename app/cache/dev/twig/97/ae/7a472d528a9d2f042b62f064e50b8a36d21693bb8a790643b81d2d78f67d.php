@@ -7,7 +7,7 @@ class __TwigTemplate_97ae7a472d528a9d2f042b62f064e50b8a36d21693bb8a790643b81d2d7
     {
         parent::__construct($env);
 
-        $this->parent = $this->env->loadTemplate("RahaHomeBundle:Default:layout.html.twig");
+        $this->parent = $this->env->loadTemplate("::base.html.twig");
 
         $this->blocks = array(
             'title' => array($this, 'block_title'),
@@ -17,7 +17,7 @@ class __TwigTemplate_97ae7a472d528a9d2f042b62f064e50b8a36d21693bb8a790643b81d2d7
 
     protected function doGetParent(array $context)
     {
-        return "RahaHomeBundle:Default:layout.html.twig";
+        return "::base.html.twig";
     }
 
     protected function doDisplay(array $context, array $blocks = array())

@@ -1,8 +1,29 @@
-{% extends 'RahaHomeBundle:Default:layout.html.twig' %}
+{% extends '::base.html.twig' %}
 {% block title %}Bienvenue sur {% endblock %}
 
 {% block body %}
-    Blog homepage
-    
+    {% for entity in entities %}
+        <article class="blog">
+            <div class="date"><time datetime="{{ entity.date|date('c') }}">{{ entity.date|date('l, F j, Y') }}</time></div>
+            <header>
+                <h2><a href="{{ path('article_show', { 'id': entity.id }) }}">{{ entity.titre }}</a></h2>
+            </header>
+
+            {% if entity.media %}
+                {% thumbnail entity.media, 'small' %} {# render the related thumbnail #}
+            {% endif %}
+            <div class="snippet">
+                <p>{{ entity.contenu(500) }}</p>
+                <p class="continue"><a href="{{ path('article_show', { 'id': entity.id }) }}">Voir plus...</a></p>
+            </div>
+
+            <footer class="meta">
+                <p>Posted by <span class="highlight">{{entity.auteur}}</span> at {{ entity.date|date('h:iA') }}</p>
+                <p>Tags: <span class="highlight">{{ entity.tags }}</span></p>
+            </footer>
+        </article>
+    {% else %}
+        <p>Pas d'article trouve</p>
+    {% endfor %}
 {% endblock %}
 

@@ -5,12 +5,23 @@ use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 // Import new namespaces
 use Raha\HomeBundle\Entity\Enquiry;
 use Raha\HomeBundle\Form\EnquiryType;
+use Symfony\Component\HttpFoundation\Response;
+
 
 class DefaultController extends Controller
 {
     public function indexAction()
     {
-        return $this->render('RahaHomeBundle:Default:index.html.twig');
+        $em = $this->getDoctrine()->getManager();
+
+        $repository = $em->getRepository('RahaHomeBundle:Article');
+        $entities = $repository->createQueryBuilder('p')
+        ->orderBy('p.date', 'DESC')
+        ->getQuery()
+        ->getResult();
+
+        return $this->render('RahaHomeBundle:Default:index.html.twig', array(
+            'entities' => $entities));
     }
 
     public function aboutAction()
@@ -41,6 +52,5 @@ class DefaultController extends Controller
         'form' => $form->createView()
     ));
 	}
-
 
 }

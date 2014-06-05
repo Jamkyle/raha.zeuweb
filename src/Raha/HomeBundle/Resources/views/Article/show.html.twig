@@ -1,0 +1,49 @@
+{% extends '::base.html.twig' %}
+
+{% block body -%}
+
+
+ <article class="blog">
+        <header>
+            <div class="date"><time datetime="{{ entity.date|date('c') }}">{{ entity.date|date('l, F j, Y') }}</time></div>
+            <h2>{{ entity.titre }}</h2>
+        </header>
+        {% if entity.media and entity.media.providerReference %}
+
+            {% media entity.media, 'reference' %}
+
+        {% endif %}
+        <div>
+            <p>{{ entity.contenu }}</p>
+        </div>
+        <table class="record">
+            <tr>
+            <th>Tags</th>
+            <td>{{ entity.tags }}</td>
+            </tr>
+        </table>
+        <section class="comments" id="comments">
+            <section class="previous-comments">
+                <h3>Comments</h3>
+                {% include 'RahaHomeBundle:Comment:index.html.twig' with { 'comments': comments } %}
+            </section>
+           <h3>Add Comment</h3>
+                {% render controller('RahaHomeBundle:Comment:new', { 'article_id': entity.id }) %}
+        </section>
+
+    </article>
+    
+        <ul class="record_actions">
+    <li>
+        <a href="{{ path('article') }}">
+            Retour liste d'article
+        </a>
+    </li>
+    <li>
+        <a href="{{ path('article_edit', { 'id': entity.id }) }}">
+            Modifier
+        </a>
+    </li>
+    <li>{{ form(delete_form) }}</li>
+</ul>
+{% endblock %}

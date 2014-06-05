@@ -1,0 +1,70 @@
+{% extends '::base.html.twig' %}
+
+{% block body -%}
+    <h1>Article list</h1>
+
+    <table class="records_list">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Date</th>
+                <th>Titre</th>
+                <th>Auteur</th>
+                <th>Contenu</th>
+                <th>Image</th>
+                <th>Tags</th>  
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for entity in entities %}
+            <tr>
+                <td><a href="{{ path('article_show', { 'id': entity.id }) }}">{{ entity.id }}</a></td>
+                <td>{% if entity.date %}{{ entity.date|date('Y-m-d H:i:s') }}{% endif %}</td>
+                <td>{{ entity.titre }}</td>
+                <td>{{ entity.auteur }}</td>
+                <td>{{ entity.contenu }}</td>
+                <td>
+                    {% if entity.media %}
+                        {% thumbnail entity.media, 'small' %} {# render the related thumbnail #}
+                    {% endif %}
+                </td>
+                <td>{{ entity.tags }}</td>
+                <td>
+                <ul>
+                    <li>
+                        <a href="{{ path('article_show', { 'id': entity.id }) }}">show</a>
+                    </li>
+                    <li>
+                        <a href="{{ path('article_edit', { 'id': entity.id }) }}">edit</a>
+                    </li>
+                </ul>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <ul class="admin">
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'youtube'}) }}">
+                new youtube
+            </a>
+        </li>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'dailymotion'}) }}">
+                new dailymotion
+            </a>
+        </li>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'image'}) }}">
+                new image
+            </a>
+        </li>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'vimeo'}) }}">
+                new vimeo
+            </a>
+        </li>
+    </ul>
+    {% endblock %}

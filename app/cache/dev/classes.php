@@ -2387,6 +2387,36 @@ return array($controller, $method);
 }
 namespace Symfony\Component\Security\Http
 {
+use Symfony\Component\HttpFoundation\Request;
+interface AccessMapInterface
+{
+public function getPatterns(Request $request);
+}
+}
+namespace Symfony\Component\Security\Http
+{
+use Symfony\Component\HttpFoundation\RequestMatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+class AccessMap implements AccessMapInterface
+{
+private $map = array();
+public function add(RequestMatcherInterface $requestMatcher, array $attributes = array(), $channel = null)
+{
+$this->map[] = array($requestMatcher, $attributes, $channel);
+}
+public function getPatterns(Request $request)
+{
+foreach ($this->map as $elements) {
+if (null === $elements[0] || $elements[0]->matches($request)) {
+return array($elements[1], $elements[2]);
+}
+}
+return array(null, null);
+}
+}
+}
+namespace Symfony\Component\Security\Http
+{
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
@@ -14169,6 +14199,3060 @@ $service = $constraint->getService();
 $function = array($service, $constraint->getMethod());
 }
 call_user_func($function, $errorElement, $value);
+}
+}
+}
+namespace Sonata\MediaBundle\CDN
+{
+interface CDNInterface
+{
+const STATUS_OK = 1;
+const STATUS_TO_SEND = 2;
+const STATUS_TO_FLUSH = 3;
+const STATUS_ERROR = 4;
+const STATUS_WAITING = 5;
+public function getPath($relativePath, $isFlushable);
+public function flush($string);
+public function flushByString($string);
+public function flushPaths(array $paths);
+}
+}
+namespace Sonata\MediaBundle\CDN
+{
+class Fallback implements CDNInterface
+{
+protected $cdn;
+protected $fallback;
+public function __construct(CDNInterface $cdn, CDNInterface $fallback)
+{
+$this->cdn = $cdn;
+$this->fallback = $fallback;
+}
+public function getPath($relativePath, $isFlushable)
+{
+if ($isFlushable) {
+return $this->fallback->getPath($relativePath, $isFlushable);
+}
+return $this->cdn->getPath($relativePath, $isFlushable);
+}
+public function flushByString($string)
+{
+$this->cdn->flushByString($string);
+}
+public function flush($string)
+{
+$this->cdn->flush($string);
+}
+public function flushPaths(array $paths)
+{
+$this->cdn->flushPaths($paths);
+}
+}
+}
+namespace Sonata\MediaBundle\CDN
+{
+class PantherPortal implements CDNInterface
+{
+protected $path;
+protected $username;
+protected $password;
+protected $siteId;
+protected $client;
+protected $wsdl;
+public function __construct($path, $username, $password, $siteId, $wsdl ="https://pantherportal.cdnetworks.com/wsdl/flush.wsdl")
+{
+$this->path = $path;
+$this->username = $username;
+$this->password = $password;
+$this->siteId = $siteId;
+$this->wsdl = $wsdl;
+}
+public function getPath($relativePath, $isFlushable)
+{
+return sprintf('%s/%s', $this->path, $relativePath);
+}
+public function flushByString($string)
+{
+$this->flushPaths(array($string));
+}
+public function flush($string)
+{
+$this->flushPaths(array($string));
+}
+public function flushPaths(array $paths)
+{
+$result = $this->getClient()->flush($this->username, $this->password,"paths", $this->siteId, implode("\n", $paths), true, false);
+if ($result !="Flush successfully submitted.") {
+throw new \RuntimeException('Unable to flush : '. $result);
+}
+}
+private function getClient()
+{
+if (!$this->client) {
+$this->client = new \SoapClient($this->wsdl);
+}
+return $this->client;
+}
+public function setClient($client)
+{
+$this->client = $client;
+}
+}
+}
+namespace Sonata\MediaBundle\CDN
+{
+class Server implements CDNInterface
+{
+protected $path;
+public function __construct($path)
+{
+$this->path = $path;
+}
+public function getPath($relativePath, $isFlushable)
+{
+return sprintf('%s/%s', rtrim($this->path,'/'), ltrim($relativePath,'/'));
+}
+public function flushByString($string)
+{
+}
+public function flush($string)
+{
+}
+public function flushPaths(array $paths)
+{
+}
+}
+}
+namespace Sonata\MediaBundle\Extra
+{
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Sonata\MediaBundle\Model\MediaManagerInterface;
+use Symfony\Component\Routing\RouterInterface;
+use Sonata\MediaBundle\Provider\Pool;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Templating\EngineInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+class Pixlr
+{
+protected $referrer;
+protected $secret;
+protected $mediaManager;
+protected $router;
+protected $pool;
+protected $templating;
+protected $container;
+protected $validFormats;
+protected $allowEreg;
+public function __construct($referrer, $secret, Pool $pool, MediaManagerInterface $mediaManager, RouterInterface $router, EngineInterface $templating, ContainerInterface $container)
+{
+$this->referrer = $referrer;
+$this->secret = $secret;
+$this->mediaManager = $mediaManager;
+$this->router = $router;
+$this->pool = $pool;
+$this->templating = $templating;
+$this->container = $container;
+$this->validFormats = array('jpg','jpeg','png');
+$this->allowEreg ='@http://([a-zA-Z0-9]*).pixlr.com/_temp/[0-9a-z]{24}\.[a-z]*@';
+}
+private function generateHash(MediaInterface $media)
+{
+return sha1($media->getId() . $media->getCreatedAt()->format('u') . $this->secret);
+}
+private function getMedia($id)
+{
+$media = $this->mediaManager->findOneBy(array('id'=> $id));
+if (!$media) {
+throw new NotFoundHttpException('Media not found');
+}
+return $media;
+}
+private function checkMedia($hash, MediaInterface $media)
+{
+if ($hash != $this->generateHash($media)) {
+throw new NotFoundHttpException('Invalid hash');
+}
+if (!$this->isEditable($media)) {
+throw new NotFoundHttpException('Media is not editable');
+}
+}
+private function buildQuery(array $parameters = array())
+{
+$query = array();
+foreach ($parameters as $name => $value) {
+$query[] = sprintf('%s=%s', $name, $value);
+}
+return implode('&', $query);
+}
+public function editAction($id, $mode)
+{
+if (!in_array($mode, array('express','editor'))) {
+throw new NotFoundHttpException('Invalid mode');
+}
+$media = $this->getMedia($id);
+$provider = $this->pool->getProvider($media->getProviderName());
+$hash = $this->generateHash($media);
+$parameters = array('s'=>'c','referrer'=> $this->referrer,'exit'=> $this->router->generate('sonata_media_pixlr_exit', array('hash'=> $hash,'id'=> $media->getId()), true),'image'=> $provider->generatePublicUrl($media,'reference'),'title'=> $media->getName(),'target'=> $this->router->generate('sonata_media_pixlr_target', array('hash'=> $hash,'id'=> $media->getId()), true),'locktitle'=> true,'locktarget'=> true,
+);
+$url = sprintf('http://pixlr.com/%s/?%s', $mode, $this->buildQuery($parameters));
+return new RedirectResponse($url);
+}
+public function exitAction($hash, $id)
+{
+$media = $this->getMedia($id);
+$this->checkMedia($hash, $media);
+return new Response($this->templating->render('SonataMediaBundle:Extra:pixlr_exit.html.twig'));
+}
+public function targetAction(Request $request, $hash, $id)
+{
+$media = $this->getMedia($id);
+$this->checkMedia($hash, $media);
+$provider = $this->pool->getProvider($media->getProviderName());
+if (!preg_match($this->allowEreg, $request->get('image'), $matches)) {
+throw new NotFoundHttpException(sprintf('Invalid image host : %s', $request->get('image')));
+}
+$file = $provider->getReferenceFile($media);
+$file->setContent(file_get_contents($request->get('image')));
+$provider->updateMetadata($media);
+$provider->generateThumbnails($media);
+$this->mediaManager->save($media);
+return new Response($this->templating->render('SonataMediaBundle:Extra:pixlr_exit.html.twig'));
+}
+public function isEditable(MediaInterface $media)
+{
+if (!$this->container->get('sonata.media.admin.media')->isGranted('EDIT', $media)) {
+return false;
+}
+return in_array(strtolower($media->getExtension()), $this->validFormats);
+}
+public function openEditorAction($id)
+{
+$media = $this->getMedia($id);
+if (!$this->isEditable($media)) {
+throw new NotFoundHttpException('The media is not editable');
+}
+return new Response($this->templating->render('SonataMediaBundle:Extra:pixlr_editor.html.twig', array('media'=> $media,'admin_pool'=> $this->container->get('sonata.admin.pool'),
+)));
+}
+}
+}
+namespace Gaufrette\Adapter
+{
+interface SizeCalculator
+{
+public function size($key);
+}
+}
+namespace Gaufrette\Adapter
+{
+interface ChecksumCalculator
+{
+public function checksum($key);
+}
+}
+namespace Gaufrette\Adapter
+{
+interface StreamFactory
+{
+public function createStream($key);
+}
+}
+namespace Gaufrette
+{
+interface Adapter
+{
+public function read($key);
+public function write($key, $content);
+public function exists($key);
+public function keys();
+public function mtime($key);
+public function delete($key);
+public function rename($sourceKey, $targetKey);
+public function isDirectory($key);
+}
+}
+namespace Gaufrette\Adapter
+{
+use Gaufrette\Util;
+use Gaufrette\Adapter;
+use Gaufrette\Stream;
+use Gaufrette\Adapter\StreamFactory;
+use Gaufrette\Exception;
+class Local implements Adapter,
+StreamFactory,
+ChecksumCalculator,
+SizeCalculator
+{
+protected $directory;
+private $create;
+private $mode;
+public function __construct($directory, $create = false, $mode = 0777)
+{
+$this->directory = Util\Path::normalize($directory);
+if (is_link($this->directory)) {
+$this->directory = realpath($this->directory);
+}
+$this->create = $create;
+$this->mode = $mode;
+}
+public function read($key)
+{
+return file_get_contents($this->computePath($key));
+}
+public function write($key, $content)
+{
+$path = $this->computePath($key);
+$this->ensureDirectoryExists(dirname($path), true);
+return file_put_contents($path, $content);
+}
+public function rename($sourceKey, $targetKey)
+{
+$targetPath = $this->computePath($targetKey);
+$this->ensureDirectoryExists(dirname($targetPath), true);
+return rename($this->computePath($sourceKey), $targetPath);
+}
+public function exists($key)
+{
+return file_exists($this->computePath($key));
+}
+public function keys()
+{
+$this->ensureDirectoryExists($this->directory, $this->create);
+try {
+$files = new \RecursiveIteratorIterator(
+new \RecursiveDirectoryIterator(
+$this->directory,
+\FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS
+)
+);
+} catch (\Exception $e) {
+$files = new \EmptyIterator;
+}
+$keys = array();
+foreach ($files as $file) {
+$keys[] = $key = $this->computeKey($file);
+if ('.'!== dirname($key)) {
+$keys[] = dirname($key);
+}
+}
+sort($keys);
+return $keys;
+}
+public function mtime($key)
+{
+return filemtime($this->computePath($key));
+}
+public function delete($key)
+{
+if ($this->isDirectory($key)) {
+return rmdir($this->computePath($key));
+}
+return unlink($this->computePath($key));
+}
+public function isDirectory($key)
+{
+return is_dir($this->computePath($key));
+}
+public function createStream($key)
+{
+return new Stream\Local($this->computePath($key));
+}
+public function checksum($key)
+{
+return Util\Checksum::fromFile($this->computePath($key));
+}
+public function size($key)
+{
+return Util\Size::fromFile($this->computePath($key));
+}
+public function computeKey($path)
+{
+$path = $this->normalizePath($path);
+return ltrim(substr($path, strlen($this->directory)),'/');
+}
+protected function computePath($key)
+{
+$this->ensureDirectoryExists($this->directory, $this->create);
+return $this->normalizePath($this->directory .'/'. $key);
+}
+protected function normalizePath($path)
+{
+$path = Util\Path::normalize($path);
+if (0 !== strpos($path, $this->directory)) {
+throw new \OutOfBoundsException(sprintf('The path "%s" is out of the filesystem.', $path));
+}
+return $path;
+}
+protected function ensureDirectoryExists($directory, $create = false)
+{
+if (!is_dir($directory)) {
+if (!$create) {
+throw new \RuntimeException(sprintf('The directory "%s" does not exist.', $directory));
+}
+$this->createDirectory($directory);
+}
+}
+protected function createDirectory($directory)
+{
+$created = mkdir($directory, $this->mode, true);
+if (!$created) {
+if (!is_dir($directory)) {
+throw new \RuntimeException(sprintf('The directory \'%s\' could not be created.', $directory));
+}
+}
+}
+}
+}
+namespace Sonata\MediaBundle\Filesystem
+{
+use Gaufrette\Adapter\Local as BaseLocal;
+class Local extends BaseLocal
+{
+public function getDirectory()
+{
+return $this->directory;
+}
+}
+}
+namespace Gaufrette\Adapter
+{
+interface MetadataSupporter
+{
+public function setMetadata($key, $content);
+public function getMetadata($key);
+}
+}
+namespace Sonata\MediaBundle\Filesystem
+{
+use Gaufrette\Adapter as AdapterInterface;
+use Gaufrette\Adapter\MetadataSupporter;
+use Gaufrette\Filesystem;
+use Psr\Log\LoggerInterface;
+class Replicate implements AdapterInterface, MetadataSupporter
+{
+protected $master;
+protected $slave;
+protected $logger;
+public function __construct(AdapterInterface $master, AdapterInterface $slave, LoggerInterface $logger = null)
+{
+$this->master = $master;
+$this->slave = $slave;
+$this->logger = $logger;
+}
+public function delete($key)
+{
+$ok = true;
+try {
+$this->slave->delete($key);
+} catch (\Exception $e) {
+if ($this->logger) {
+$this->logger->critical(sprintf("Unable to delete %s, error: %s", $key, $e->getMessage()));
+}
+$ok = false;
+}
+try {
+$this->master->delete($key);
+} catch (\Exception $e) {
+if ($this->logger) {
+$this->logger->critical(sprintf("Unable to delete %s, error: %s", $key, $e->getMessage()));
+}
+$ok = false;
+}
+return $ok;
+}
+public function mtime($key)
+{
+return $this->master->mtime($key);
+}
+public function keys()
+{
+return $this->master->keys();
+}
+public function exists($key)
+{
+return $this->master->exists($key);
+}
+public function write($key, $content, array $metadata = null)
+{
+$ok = true;
+$return = false;
+try {
+$return = $this->master->write($key, $content, $metadata);
+} catch (\Exception $e) {
+if ($this->logger) {
+$this->logger->critical(sprintf("Unable to write %s, error: %s", $key, $e->getMessage()));
+}
+$ok = false;
+}
+try {
+$return = $this->slave->write($key, $content, $metadata);
+} catch (\Exception $e) {
+if ($this->logger) {
+$this->logger->critical(sprintf("Unable to write %s, error: %s", $key, $e->getMessage()));
+}
+$ok = false;
+}
+return $ok && $return;
+}
+public function read($key)
+{
+return $this->master->read($key);
+}
+public function rename($key, $new)
+{
+$ok = true;
+try {
+$this->master->rename($key, $new);
+} catch (\Exception $e) {
+if ($this->logger) {
+$this->logger->critical(sprintf("Unable to rename %s, error: %s", $key, $e->getMessage()));
+}
+$ok = false;
+}
+try {
+$this->slave->rename($key, $new);
+} catch (\Exception $e) {
+if ($this->logger) {
+$this->logger->critical(sprintf("Unable to rename %s, error: %s", $key, $e->getMessage()));
+}
+$ok = false;
+}
+return $ok;
+}
+public function supportsMetadata()
+{
+return $this->master instanceof MetadataSupporter || $this->slave instanceof MetadataSupporter;
+}
+public function setMetadata($key, $metadata)
+{
+if ($this->master instanceof MetadataSupporter) {
+$this->master->setMetadata($key, $metadata);
+}
+if ($this->slave instanceof MetadataSupporter) {
+$this->slave->setMetadata($key, $metadata);
+}
+}
+public function getMetadata($key)
+{
+if ($this->master instanceof MetadataSupporter) {
+return $this->master->getMetadata($key);
+} elseif ($this->slave instanceof MetadataSupporter) {
+return $this->slave->getMetadata($key);
+}
+return array();
+}
+public function getAdapterClassNames()
+{
+return array(
+get_class($this->master),
+get_class($this->slave),
+);
+}
+public function createFile($key, Filesystem $filesystem)
+{
+return $this->master->createFile($key, $filesystem);
+}
+public function createFileStream($key, Filesystem $filesystem)
+{
+return $this->master->createFileStream($key, $filesystem);
+}
+public function listDirectory($directory ='')
+{
+return $this->master->listDirectory($directory);
+}
+public function isDirectory($key)
+{
+return $this->master->isDirectory($key);
+}
+}
+}
+namespace Sonata\MediaBundle\Generator
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+interface GeneratorInterface
+{
+public function generatePath(MediaInterface $media);
+}
+}
+namespace Sonata\MediaBundle\Generator
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+class DefaultGenerator implements GeneratorInterface
+{
+protected $firstLevel;
+protected $secondLevel;
+public function __construct($firstLevel = 100000, $secondLevel = 1000)
+{
+$this->firstLevel = $firstLevel;
+$this->secondLevel = $secondLevel;
+}
+public function generatePath(MediaInterface $media)
+{
+$rep_first_level = (int) ($media->getId() / $this->firstLevel);
+$rep_second_level = (int) (($media->getId() - ($rep_first_level * $this->firstLevel)) / $this->secondLevel);
+return sprintf('%s/%04s/%02s', $media->getContext(), $rep_first_level + 1, $rep_second_level + 1);
+}
+}
+}
+namespace Sonata\MediaBundle\Generator
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+class ODMGenerator implements GeneratorInterface
+{
+public function generatePath(MediaInterface $media)
+{
+$id = $media->getId();
+return sprintf('%s/%04s/%02s', $media->getContext(), substr($id, 0, 4), substr($id, 4, 2));
+}
+}
+}
+namespace Sonata\MediaBundle\Generator
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+class PHPCRGenerator implements GeneratorInterface
+{
+public function generatePath(MediaInterface $media)
+{
+$segments = preg_split('#/#', $media->getId(), null, PREG_SPLIT_NO_EMPTY);
+if (count($segments) > 1) {
+array_pop($segments);
+$path = join($segments,'/');
+} else {
+$path ='';
+}
+return $path ? sprintf('%s/%s', $media->getContext(), $path) : $media->getContext();
+}
+}
+}
+namespace Sonata\MediaBundle\Metadata
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+interface MetadataBuilderInterface
+{
+public function get(MediaInterface $media, $filename);
+}
+}
+namespace Sonata\MediaBundle\Metadata
+{
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+use Sonata\MediaBundle\Model\MediaInterface;
+use \AmazonS3 as AmazonS3;
+use \CFMimeTypes;
+class AmazonMetadataBuilder implements MetadataBuilderInterface
+{
+protected $settings;
+protected $acl = array('private'=> AmazonS3::ACL_PRIVATE,'public'=> AmazonS3::ACL_PUBLIC,'open'=> AmazonS3::ACL_OPEN,'auth_read'=> AmazonS3::ACL_AUTH_READ,'owner_read'=> AmazonS3::ACL_OWNER_READ,'owner_full_control'=> AmazonS3::ACL_OWNER_FULL_CONTROL,
+);
+public function __construct(array $settings)
+{
+$this->settings = $settings;
+}
+protected function getDefaultMetadata()
+{
+$output = array();
+if (isset($this->settings['acl']) && !empty($this->settings['acl'])) {
+$output['acl'] = $this->acl[$this->settings['acl']];
+}
+if (isset($this->settings['storage'])) {
+if ($this->settings['storage'] =='standard') {
+$output['storage'] = AmazonS3::STORAGE_STANDARD;
+} elseif ($this->settings['storage'] =='reduced') {
+$output['storage'] = AmazonS3::STORAGE_REDUCED;
+}
+}
+if (isset($this->settings['meta']) && !empty($this->settings['meta'])) {
+$output['meta'] = $this->settings['meta'];
+}
+if (isset($this->settings['cache_control']) && !empty($this->settings['cache_control'])) {
+$output['headers']['Cache-Control'] = $this->settings['cache_control'];
+}
+if (isset($this->settings['encryption']) && !empty($this->settings['encryption'])) {
+if ($this->settings['encryption'] =='aes256') {
+$output['encryption'] ='AES256';
+}
+}
+return $output;
+}
+protected function getContentType($filename)
+{
+$extension = pathinfo($filename, PATHINFO_EXTENSION);
+$contentType = CFMimeTypes::get_mimetype($extension);
+return array('contentType'=> $contentType);
+}
+public function get(MediaInterface $media, $filename)
+{
+return array_replace_recursive(
+$this->getDefaultMetadata(),
+$this->getContentType($filename)
+);
+}
+}
+}
+namespace Sonata\MediaBundle\Metadata
+{
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+use Sonata\MediaBundle\Model\MediaInterface;
+class NoopMetadataBuilder implements MetadataBuilderInterface
+{
+public function get(MediaInterface $media, $filename)
+{
+return array();
+}
+}
+}
+namespace Sonata\MediaBundle\Metadata
+{
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Filesystem\Replicate;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+class ProxyMetadataBuilder implements MetadataBuilderInterface
+{
+private $container;
+private $map;
+private $metadata;
+public function __construct(ContainerInterface $container, array $map)
+{
+$this->container = $container;
+$this->map = $map;
+}
+public function get(MediaInterface $media, $filename)
+{
+if (!$this->container->has($media->getProviderName())) {
+return array();
+}
+if ($meta = $this->getAmazonBuilder($media, $filename)) {
+return $meta;
+}
+if (!$this->container->has('sonata.media.metadata.noop')) {
+return array();
+}
+return $this->container->get('sonata.media.metadata.noop')->get($media, $filename);
+}
+protected function getAmazonBuilder(MediaInterface $media, $filename)
+{
+$adapter = $this->container->get($media->getProviderName())->getFilesystem()->getAdapter();
+if ($adapter instanceof Replicate) {
+$adapterClassNames = $adapter->getAdapterClassNames();
+} else {
+$adapterClassNames = array(get_class($adapter));
+}
+if (!in_array('Gaufrette\Adapter\AmazonS3', $adapterClassNames) || !$this->container->has('sonata.media.metadata.amazon')) {
+return false;
+}
+return $this->container->get('sonata.media.metadata.amazon')->get($media, $filename);
+}
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+interface GalleryInterface
+{
+public function setName($name);
+public function getContext();
+public function setContext($context);
+public function getName();
+public function setEnabled($enabled);
+public function getEnabled();
+public function setUpdatedAt(\DateTime $updatedAt = null);
+public function getUpdatedAt();
+public function setCreatedAt(\DateTime $createdAt = null);
+public function getCreatedAt();
+public function setDefaultFormat($defaultFormat);
+public function getDefaultFormat();
+public function setGalleryHasMedias($galleryHasMedias);
+public function getGalleryHasMedias();
+public function addGalleryHasMedias(GalleryHasMediaInterface $galleryHasMedia);
+public function __toString();
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+use Doctrine\Common\Collections\ArrayCollection;
+abstract class Gallery implements GalleryInterface
+{
+protected $context;
+protected $name;
+protected $enabled;
+protected $updatedAt;
+protected $createdAt;
+protected $defaultFormat;
+protected $galleryHasMedias;
+public function setName($name)
+{
+$this->name = $name;
+}
+public function getName()
+{
+return $this->name;
+}
+public function setEnabled($enabled)
+{
+$this->enabled = $enabled;
+}
+public function getEnabled()
+{
+return $this->enabled;
+}
+public function setUpdatedAt(\DateTime $updatedAt = null)
+{
+$this->updatedAt = $updatedAt;
+}
+public function getUpdatedAt()
+{
+return $this->updatedAt;
+}
+public function setCreatedAt(\DateTime $createdAt = null)
+{
+$this->createdAt = $createdAt;
+}
+public function getCreatedAt()
+{
+return $this->createdAt;
+}
+public function setDefaultFormat($defaultFormat)
+{
+$this->defaultFormat = $defaultFormat;
+}
+public function getDefaultFormat()
+{
+return $this->defaultFormat;
+}
+public function setGalleryHasMedias($galleryHasMedias)
+{
+$this->galleryHasMedias = new ArrayCollection();
+foreach ($galleryHasMedias as $galleryHasMedia) {
+$this->addGalleryHasMedias($galleryHasMedia);
+}
+}
+public function getGalleryHasMedias()
+{
+return $this->galleryHasMedias;
+}
+public function addGalleryHasMedias(GalleryHasMediaInterface $galleryHasMedia)
+{
+$galleryHasMedia->setGallery($this);
+$this->galleryHasMedias[] = $galleryHasMedia;
+}
+public function __toString()
+{
+return $this->getName() ?:'-';
+}
+public function setContext($context)
+{
+$this->context = $context;
+}
+public function getContext()
+{
+return $this->context;
+}
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+interface GalleryHasMediaInterface
+{
+public function setEnabled($enabled);
+public function getEnabled();
+public function setGallery(GalleryInterface $gallery = null);
+public function getGallery();
+public function setMedia(MediaInterface $media = null);
+public function getMedia();
+public function setPosition($position);
+public function getPosition();
+public function setUpdatedAt(\DateTime $updatedAt = null);
+public function getUpdatedAt();
+public function setCreatedAt(\DateTime $createdAt = null);
+public function getCreatedAt();
+public function __toString();
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+abstract class GalleryHasMedia implements GalleryHasMediaInterface
+{
+protected $media;
+protected $gallery;
+protected $position;
+protected $updatedAt;
+protected $createdAt;
+protected $enabled;
+public function __construct()
+{
+$this->position = 0;
+$this->enabled = false;
+}
+public function setCreatedAt(\DateTime $createdAt = null)
+{
+$this->createdAt = $createdAt;
+}
+public function getCreatedAt()
+{
+return $this->createdAt;
+}
+public function setEnabled($enabled)
+{
+$this->enabled = $enabled;
+}
+public function getEnabled()
+{
+return $this->enabled;
+}
+public function setGallery(GalleryInterface $gallery = null)
+{
+$this->gallery = $gallery;
+}
+public function getGallery()
+{
+return $this->gallery;
+}
+public function setMedia(MediaInterface $media = null)
+{
+$this->media = $media;
+}
+public function getMedia()
+{
+return $this->media;
+}
+public function setPosition($position)
+{
+$this->position = $position;
+}
+public function getPosition()
+{
+return $this->position;
+}
+public function setUpdatedAt(\DateTime $updatedAt = null)
+{
+$this->updatedAt = $updatedAt;
+}
+public function getUpdatedAt()
+{
+return $this->updatedAt;
+}
+public function __toString()
+{
+return $this->getGallery().' | '.$this->getMedia();
+}
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+use Sonata\CoreBundle\Model\ManagerInterface;
+interface GalleryManagerInterface extends ManagerInterface
+{
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+abstract class GalleryManager implements GalleryManagerInterface
+{
+public function create()
+{
+$class = $this->getClass();
+return new $class;
+}
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+interface MediaInterface
+{
+const STATUS_OK = 1;
+const STATUS_SENDING = 2;
+const STATUS_PENDING = 3;
+const STATUS_ERROR = 4;
+const STATUS_ENCODING = 5;
+public function setBinaryContent($binaryContent);
+public function getBinaryContent();
+public function getMetadataValue($name, $default = null);
+public function setMetadataValue($name, $value);
+public function unsetMetadataValue($name);
+public function getId();
+public function setName($name);
+public function getName();
+public function setDescription($description);
+public function getDescription();
+public function setEnabled($enabled);
+public function getEnabled();
+public function setProviderName($providerName);
+public function getProviderName();
+public function setProviderStatus($providerStatus);
+public function getProviderStatus();
+public function setProviderReference($providerReference);
+public function getProviderReference();
+public function setProviderMetadata(array $providerMetadata = array());
+public function getProviderMetadata();
+public function setWidth($width);
+public function getWidth();
+public function setHeight($height);
+public function getHeight();
+public function setLength($length);
+public function getLength();
+public function setCopyright($copyright);
+public function getCopyright();
+public function setAuthorName($authorName);
+public function getAuthorName();
+public function setContext($context);
+public function getContext();
+public function setCdnIsFlushable($cdnIsFlushable);
+public function getCdnIsFlushable();
+public function setCdnFlushAt(\Datetime $cdnFlushAt = null);
+public function getCdnFlushAt();
+public function setUpdatedAt(\Datetime $updatedAt = null);
+public function getUpdatedAt();
+public function setCreatedAt(\Datetime $createdAt = null);
+public function getCreatedAt();
+public function setContentType($contentType);
+public function getExtension();
+public function getContentType();
+public function setSize($size);
+public function getSize();
+public function setCdnStatus($cdnStatus);
+public function getCdnStatus();
+public function getBox();
+public function setGalleryHasMedias($galleryHasMedias);
+public function getGalleryHasMedias();
+public function getPreviousProviderReference();
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+use Imagine\Image\Box;
+use Symfony\Component\Validator\ExecutionContextInterface;
+abstract class Media implements MediaInterface
+{
+protected $name;
+protected $description;
+protected $enabled = false;
+protected $providerName;
+protected $providerStatus;
+protected $providerReference;
+protected $providerMetadata = array();
+protected $width;
+protected $height;
+protected $length;
+protected $copyright;
+protected $authorName;
+protected $context;
+protected $cdnIsFlushable;
+protected $cdnFlushAt;
+protected $cdnStatus;
+protected $updatedAt;
+protected $createdAt;
+protected $binaryContent;
+protected $previousProviderReference;
+protected $contentType;
+protected $size;
+protected $galleryHasMedias;
+public function prePersist()
+{
+$this->setCreatedAt(new \DateTime);
+$this->setUpdatedAt(new \DateTime);
+}
+public function preUpdate()
+{
+$this->setUpdatedAt(new \DateTime);
+}
+public static function getStatusList()
+{
+return array(
+self::STATUS_OK =>'ok',
+self::STATUS_SENDING =>'sending',
+self::STATUS_PENDING =>'pending',
+self::STATUS_ERROR =>'error',
+self::STATUS_ENCODING =>'encoding',
+);
+}
+public function setBinaryContent($binaryContent)
+{
+$this->previousProviderReference = $this->providerReference;
+$this->providerReference = null;
+$this->binaryContent = $binaryContent;
+}
+public function getBinaryContent()
+{
+return $this->binaryContent;
+}
+public function getMetadataValue($name, $default = null)
+{
+$metadata = $this->getProviderMetadata();
+return isset($metadata[$name]) ? $metadata[$name] : $default;
+}
+public function setMetadataValue($name, $value)
+{
+$metadata = $this->getProviderMetadata();
+$metadata[$name] = $value;
+$this->setProviderMetadata($metadata);
+}
+public function unsetMetadataValue($name)
+{
+$metadata = $this->getProviderMetadata();
+unset($metadata[$name]);
+$this->setProviderMetadata($metadata);
+}
+public function setName($name)
+{
+$this->name = $name;
+}
+public function getName()
+{
+return $this->name;
+}
+public function setDescription($description)
+{
+$this->description = $description;
+}
+public function getDescription()
+{
+return $this->description;
+}
+public function setEnabled($enabled)
+{
+$this->enabled = $enabled;
+}
+public function getEnabled()
+{
+return $this->enabled;
+}
+public function setProviderName($providerName)
+{
+$this->providerName = $providerName;
+}
+public function getProviderName()
+{
+return $this->providerName;
+}
+public function setProviderStatus($providerStatus)
+{
+$this->providerStatus = $providerStatus;
+}
+public function getProviderStatus()
+{
+return $this->providerStatus;
+}
+public function setProviderReference($providerReference)
+{
+$this->providerReference = $providerReference;
+}
+public function getProviderReference()
+{
+return $this->providerReference;
+}
+public function setProviderMetadata(array $providerMetadata = array())
+{
+$this->providerMetadata = $providerMetadata;
+}
+public function getProviderMetadata()
+{
+return $this->providerMetadata;
+}
+public function setWidth($width)
+{
+$this->width = $width;
+}
+public function getWidth()
+{
+return $this->width;
+}
+public function setHeight($height)
+{
+$this->height = $height;
+}
+public function getHeight()
+{
+return $this->height;
+}
+public function setLength($length)
+{
+$this->length = $length;
+}
+public function getLength()
+{
+return $this->length;
+}
+public function setCopyright($copyright)
+{
+$this->copyright = $copyright;
+}
+public function getCopyright()
+{
+return $this->copyright;
+}
+public function setAuthorName($authorName)
+{
+$this->authorName = $authorName;
+}
+public function getAuthorName()
+{
+return $this->authorName;
+}
+public function setContext($context)
+{
+$this->context = $context;
+}
+public function getContext()
+{
+return $this->context;
+}
+public function setCdnIsFlushable($cdnIsFlushable)
+{
+$this->cdnIsFlushable = $cdnIsFlushable;
+}
+public function getCdnIsFlushable()
+{
+return $this->cdnIsFlushable;
+}
+public function setCdnFlushAt(\DateTime $cdnFlushAt = null)
+{
+$this->cdnFlushAt = $cdnFlushAt;
+}
+public function getCdnFlushAt()
+{
+return $this->cdnFlushAt;
+}
+public function setUpdatedAt(\DateTime $updatedAt = null)
+{
+$this->updatedAt = $updatedAt;
+}
+public function getUpdatedAt()
+{
+return $this->updatedAt;
+}
+public function setCreatedAt(\DateTime $createdAt = null)
+{
+$this->createdAt = $createdAt;
+}
+public function getCreatedAt()
+{
+return $this->createdAt;
+}
+public function setContentType($contentType)
+{
+$this->contentType = $contentType;
+}
+public function getContentType()
+{
+return $this->contentType;
+}
+public function getExtension()
+{
+return pathinfo($this->getProviderReference(), PATHINFO_EXTENSION);
+}
+public function setSize($size)
+{
+$this->size = $size;
+}
+public function getSize()
+{
+return $this->size;
+}
+public function setCdnStatus($cdnStatus)
+{
+$this->cdnStatus = $cdnStatus;
+}
+public function getCdnStatus()
+{
+return $this->cdnStatus;
+}
+public function getBox()
+{
+return new Box($this->width, $this->height);
+}
+public function __toString()
+{
+return $this->getName() ?:'n/a';
+}
+public function setGalleryHasMedias($galleryHasMedias)
+{
+$this->galleryHasMedias = $galleryHasMedias;
+}
+public function getGalleryHasMedias()
+{
+return $this->galleryHasMedias;
+}
+public function getPreviousProviderReference()
+{
+return $this->previousProviderReference;
+}
+public function isStatusErroneous(ExecutionContextInterface $context)
+{
+if ($this->getBinaryContent() && $this->getProviderStatus() == self::STATUS_ERROR) {
+$context->addViolationAt('binaryContent','invalid', array(), null);
+}
+}
+}
+}
+namespace Sonata\MediaBundle\Model
+{
+use Sonata\CoreBundle\Model\ManagerInterface;
+interface MediaManagerInterface extends ManagerInterface
+{
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\CoreBundle\Model\MetadataInterface;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\AdminBundle\Form\FormMapper;
+use Sonata\MediaBundle\Resizer\ResizerInterface;
+use Gaufrette\Filesystem;
+use Sonata\AdminBundle\Validator\ErrorElement;
+use Symfony\Component\Form\FormBuilder;
+interface MediaProviderInterface
+{
+public function addFormat($name, $format);
+public function getFormat($name);
+public function requireThumbnails();
+public function generateThumbnails(MediaInterface $media);
+public function removeThumbnails(MediaInterface $media);
+public function getReferenceFile(MediaInterface $media);
+public function getFormatName(MediaInterface $media, $format);
+public function getReferenceImage(MediaInterface $media);
+public function preUpdate(MediaInterface $media);
+public function postUpdate(MediaInterface $media);
+public function preRemove(MediaInterface $media);
+public function postRemove(MediaInterface $media);
+public function buildCreateForm(FormMapper $formMapper);
+public function buildEditForm(FormMapper $formMapper);
+public function prePersist(MediaInterface $media);
+public function postPersist(MediaInterface $media);
+public function getHelperProperties(MediaInterface $media, $format);
+public function generatePath(MediaInterface $media);
+public function generatePublicUrl(MediaInterface $media, $format);
+public function generatePrivateUrl(MediaInterface $media, $format);
+public function getFormats();
+public function setName($name);
+public function getName();
+public function getProviderMetadata();
+public function setTemplates(array $templates);
+public function getTemplates();
+public function getTemplate($name);
+public function getDownloadResponse(MediaInterface $media, $format, $mode, array $headers = array());
+public function getResizer();
+public function getFilesystem();
+public function getCdnPath($relativePath, $isFlushable);
+public function transform(MediaInterface $media);
+public function validate(ErrorElement $errorElement, MediaInterface $media);
+public function buildMediaType(FormBuilder $formBuilder);
+public function updateMetadata(MediaInterface $media, $force = false);
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Gaufrette\Filesystem;
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Resizer\ResizerInterface;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\CDN\CDNInterface;
+use Sonata\MediaBundle\Generator\GeneratorInterface;
+use Sonata\MediaBundle\Thumbnail\ThumbnailInterface;
+use Sonata\AdminBundle\Validator\ErrorElement;
+abstract class BaseProvider implements MediaProviderInterface
+{
+protected $formats = array();
+protected $templates = array();
+protected $resizer;
+protected $filesystem;
+protected $pathGenerator;
+protected $cdn;
+protected $thumbnail;
+public function __construct($name, Filesystem $filesystem, CDNInterface $cdn, GeneratorInterface $pathGenerator, ThumbnailInterface $thumbnail)
+{
+$this->name = $name;
+$this->filesystem = $filesystem;
+$this->cdn = $cdn;
+$this->pathGenerator = $pathGenerator;
+$this->thumbnail = $thumbnail;
+}
+abstract protected function doTransform(MediaInterface $media);
+final public function transform(MediaInterface $media)
+{
+if (null === $media->getBinaryContent()) {
+return;
+}
+$this->doTransform($media);
+}
+public function addFormat($name, $format)
+{
+$this->formats[$name] = $format;
+}
+public function getFormat($name)
+{
+return isset($this->formats[$name]) ? $this->formats[$name] : false;
+}
+public function requireThumbnails()
+{
+return $this->getResizer() !== null;
+}
+public function generateThumbnails(MediaInterface $media)
+{
+$this->thumbnail->generate($this, $media);
+}
+public function removeThumbnails(MediaInterface $media)
+{
+$this->thumbnail->delete($this, $media);
+}
+public function getFormatName(MediaInterface $media, $format)
+{
+if ($format =='admin') {
+return'admin';
+}
+if ($format =='reference') {
+return'reference';
+}
+$baseName = $media->getContext().'_';
+if (substr($format, 0, strlen($baseName)) == $baseName) {
+return $format;
+}
+return $baseName.$format;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description", null,"SonataMediaBundle", array('class'=>'fa fa-file'));
+}
+public function preRemove(MediaInterface $media)
+{
+}
+public function postRemove(MediaInterface $media)
+{
+$path = $this->getReferenceImage($media);
+if ($this->getFilesystem()->has($path)) {
+$this->getFilesystem()->delete($path);
+}
+if ($this->requireThumbnails()) {
+$this->thumbnail->delete($this, $media);
+}
+}
+public function generatePath(MediaInterface $media)
+{
+return $this->pathGenerator->generatePath($media);
+}
+public function getFormats()
+{
+return $this->formats;
+}
+public function setName($name)
+{
+$this->name = $name;
+}
+public function getName()
+{
+return $this->name;
+}
+public function setTemplates(array $templates)
+{
+$this->templates = $templates;
+}
+public function getTemplates()
+{
+return $this->templates;
+}
+public function getTemplate($name)
+{
+return isset($this->templates[$name]) ? $this->templates[$name] : null;
+}
+public function getResizer()
+{
+return $this->resizer;
+}
+public function getFilesystem()
+{
+return $this->filesystem;
+}
+public function getCdn()
+{
+return $this->cdn;
+}
+public function getCdnPath($relativePath, $isFlushable)
+{
+return $this->getCdn()->getPath($relativePath, $isFlushable);
+}
+public function setResizer(ResizerInterface $resizer)
+{
+$this->resizer = $resizer;
+}
+public function prePersist(MediaInterface $media)
+{
+$media->setCreatedAt(new \Datetime());
+$media->setUpdatedAt(new \Datetime());
+}
+public function preUpdate(MediaInterface $media)
+{
+$media->setUpdatedAt(new \Datetime());
+}
+public function validate(ErrorElement $errorElement, MediaInterface $media)
+{
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Gaufrette\Filesystem;
+use Sonata\AdminBundle\Form\FormMapper;
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\CDN\CDNInterface;
+use Sonata\MediaBundle\Generator\GeneratorInterface;
+use Buzz\Browser;
+use Sonata\MediaBundle\Thumbnail\ThumbnailInterface;
+use Symfony\Component\Form\FormBuilder;
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\NotNull;
+abstract class BaseVideoProvider extends BaseProvider
+{
+protected $browser;
+protected $metadata;
+public function __construct($name, Filesystem $filesystem, CDNInterface $cdn, GeneratorInterface $pathGenerator, ThumbnailInterface $thumbnail, Browser $browser, MetadataBuilderInterface $metadata = null)
+{
+parent::__construct($name, $filesystem, $cdn, $pathGenerator, $thumbnail);
+$this->browser = $browser;
+$this->metadata = $metadata;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description", null,"SonataMediaBundle", array('class'=>'fa fa-video-camera'));
+}
+public function getReferenceImage(MediaInterface $media)
+{
+return $media->getMetadataValue('thumbnail_url');
+}
+public function getReferenceFile(MediaInterface $media)
+{
+$key = $this->generatePrivateUrl($media,'reference');
+if ($this->getFilesystem()->has($key)) {
+$referenceFile = $this->getFilesystem()->get($key);
+} else {
+$referenceFile = $this->getFilesystem()->get($key, true);
+$metadata = $this->metadata ? $this->metadata->get($media, $referenceFile->getName()) : array();
+$referenceFile->setContent($this->browser->get($this->getReferenceImage($media))->getContent(), $metadata);
+}
+return $referenceFile;
+}
+public function generatePublicUrl(MediaInterface $media, $format)
+{
+return $this->getCdn()->getPath(sprintf('%s/thumb_%d_%s.jpg',
+$this->generatePath($media),
+$media->getId(),
+$format
+), $media->getCdnIsFlushable());
+}
+public function generatePrivateUrl(MediaInterface $media, $format)
+{
+return sprintf('%s/thumb_%d_%s.jpg',
+$this->generatePath($media),
+$media->getId(),
+$format
+);
+}
+public function buildEditForm(FormMapper $formMapper)
+{
+$formMapper->add('name');
+$formMapper->add('enabled', null, array('required'=> false));
+$formMapper->add('authorName');
+$formMapper->add('cdnIsFlushable');
+$formMapper->add('description');
+$formMapper->add('copyright');
+$formMapper->add('binaryContent','text', array('required'=> false));
+}
+public function buildCreateForm(FormMapper $formMapper)
+{
+$formMapper->add('binaryContent','text', array('constraints'=> array(
+new NotBlank(),
+new NotNull()
+)
+));
+}
+public function buildMediaType(FormBuilder $formBuilder)
+{
+$formBuilder->add('binaryContent','text');
+}
+public function postUpdate(MediaInterface $media)
+{
+$this->postPersist($media);
+}
+public function postPersist(MediaInterface $media)
+{
+if (!$media->getBinaryContent()) {
+return;
+}
+$this->generateThumbnails($media);
+}
+public function postRemove(MediaInterface $media)
+{
+}
+protected function getMetadata(MediaInterface $media, $url)
+{
+try {
+$response = $this->browser->get($url);
+} catch (\RuntimeException $e) {
+throw new \RuntimeException('Unable to retrieve the video information for :'. $url, null, $e);
+}
+$metadata = json_decode($response->getContent(), true);
+if (!$metadata) {
+throw new \RuntimeException('Unable to decode the video information for :'. $url);
+}
+return $metadata;
+}
+protected function getBoxHelperProperties(MediaInterface $media, $format, $options = array())
+{
+if ($format =='reference') {
+return $media->getBox();
+}
+if (isset($options['width']) || isset($options['height'])) {
+$settings = array('width'=> isset($options['width']) ? $options['width'] : null,'height'=> isset($options['height']) ? $options['height'] : null,
+);
+} else {
+$settings = $this->getFormat($format);
+}
+return $this->resizer->getBox($media, $settings);
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+class DailyMotionProvider extends BaseVideoProvider
+{
+public function getHelperProperties(MediaInterface $media, $format, $options = array())
+{
+$defaults = array('related'=> 0,'explicit'=> 0,'autoPlay'=> 0,'autoMute'=> 0,'unmuteOnMouseOver'=> 0,'start'=> 0,'enableApi'=> 0,'chromeless'=> 0,'expendVideo'=> 0,'color2'=> null,'foreground'=> null,'background'=> null,'highlight'=> null,
+);
+$player_parameters = array_merge($defaults, isset($options['player_parameters']) ? $options['player_parameters'] : array());
+$box = $this->getBoxHelperProperties($media, $format, $options);
+$params = array('player_parameters'=> http_build_query($player_parameters),'allowFullScreen'=> isset($options['allowFullScreen']) ? $options['allowFullScreen'] :'true','allowScriptAccess'=> isset($options['allowScriptAccess']) ? $options['allowScriptAccess'] :'always','width'=> $box->getWidth(),'height'=> $box->getHeight(),
+);
+return $params;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description","bundles/sonatamedia/dailymotion-icon.png","SonataMediaBundle");
+}
+protected function fixBinaryContent(MediaInterface $media)
+{
+if (!$media->getBinaryContent()) {
+return;
+}
+if (preg_match("/www.dailymotion.com\/video\/([0-9a-zA-Z]*)_/", $media->getBinaryContent(), $matches)) {
+$media->setBinaryContent($matches[1]);
+}
+}
+protected function doTransform(MediaInterface $media)
+{
+$this->fixBinaryContent($media);
+if (!$media->getBinaryContent()) {
+return;
+}
+$media->setProviderName($this->name);
+$media->setProviderStatus(MediaInterface::STATUS_OK);
+$media->setProviderReference($media->getBinaryContent());
+$this->updateMetadata($media, true);
+}
+public function updateMetadata(MediaInterface $media, $force = false)
+{
+$url = sprintf('http://www.dailymotion.com/services/oembed?url=http://www.dailymotion.com/video/%s&format=json', $media->getProviderReference());
+try {
+$metadata = $this->getMetadata($media, $url);
+} catch (\RuntimeException $e) {
+$media->setEnabled(false);
+$media->setProviderStatus(MediaInterface::STATUS_ERROR);
+return;
+}
+$media->setProviderMetadata($metadata);
+if ($force) {
+$media->setName($metadata['title']);
+$media->setAuthorName($metadata['author_name']);
+}
+$media->setHeight($metadata['height']);
+$media->setWidth($metadata['width']);
+}
+public function getDownloadResponse(MediaInterface $media, $format, $mode, array $headers = array())
+{
+return new RedirectResponse(sprintf('http://www.dailymotion.com/video/%s', $media->getProviderReference()), 302, $headers);
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Gaufrette\Adapter\Local;
+use Sonata\MediaBundle\CDN\CDNInterface;
+use Sonata\MediaBundle\Generator\GeneratorInterface;
+use Sonata\MediaBundle\Thumbnail\ThumbnailInterface;
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+use Sonata\AdminBundle\Form\FormMapper;
+use Sonata\AdminBundle\Validator\ErrorElement;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\File\File;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\Form\FormBuilder;
+use Gaufrette\Filesystem;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\NotNull;
+class FileProvider extends BaseProvider
+{
+protected $allowedExtensions;
+protected $allowedMimeTypes;
+protected $metadata;
+public function __construct($name, Filesystem $filesystem, CDNInterface $cdn, GeneratorInterface $pathGenerator, ThumbnailInterface $thumbnail, array $allowedExtensions = array(), array $allowedMimeTypes = array(), MetadataBuilderInterface $metadata = null)
+{
+parent::__construct($name, $filesystem, $cdn, $pathGenerator, $thumbnail);
+$this->allowedExtensions = $allowedExtensions;
+$this->allowedMimeTypes = $allowedMimeTypes;
+$this->metadata = $metadata;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description", null,"SonataMediaBundle", array('class'=>'fa fa-file-text-o'));
+}
+public function getReferenceImage(MediaInterface $media)
+{
+return sprintf('%s/%s',
+$this->generatePath($media),
+$media->getProviderReference()
+);
+}
+public function getReferenceFile(MediaInterface $media)
+{
+return $this->getFilesystem()->get($this->getReferenceImage($media), true);
+}
+public function buildEditForm(FormMapper $formMapper)
+{
+$formMapper->add('name');
+$formMapper->add('enabled', null, array('required'=> false));
+$formMapper->add('authorName');
+$formMapper->add('cdnIsFlushable');
+$formMapper->add('description');
+$formMapper->add('copyright');
+$formMapper->add('binaryContent','file', array('required'=> false));
+}
+public function buildCreateForm(FormMapper $formMapper)
+{
+$formMapper->add('binaryContent','file', array('constraints'=> array(
+new NotBlank(),
+new NotNull()
+)
+));
+}
+public function buildMediaType(FormBuilder $formBuilder)
+{
+$formBuilder->add('binaryContent','file');
+}
+public function postPersist(MediaInterface $media)
+{
+if ($media->getBinaryContent() === null) {
+return;
+}
+$this->setFileContents($media);
+$this->generateThumbnails($media);
+}
+public function postUpdate(MediaInterface $media)
+{
+if (!$media->getBinaryContent() instanceof \SplFileInfo) {
+return;
+}
+$oldMedia = clone $media;
+$oldMedia->setProviderReference($media->getPreviousProviderReference());
+$path = $this->getReferenceImage($oldMedia);
+if ($this->getFilesystem()->has($path)) {
+$this->getFilesystem()->delete($path);
+}
+$this->fixBinaryContent($media);
+$this->setFileContents($media);
+$this->generateThumbnails($media);
+}
+protected function fixBinaryContent(MediaInterface $media)
+{
+if ($media->getBinaryContent() === null) {
+return;
+}
+if (!$media->getBinaryContent() instanceof File) {
+if (!is_file($media->getBinaryContent())) {
+throw new \RuntimeException('The file does not exist : '. $media->getBinaryContent());
+}
+$binaryContent = new File($media->getBinaryContent());
+$media->setBinaryContent($binaryContent);
+}
+}
+protected function fixFilename(MediaInterface $media)
+{
+if ($media->getBinaryContent() instanceof UploadedFile) {
+$media->setName($media->getName() ?: $media->getBinaryContent()->getClientOriginalName());
+$media->setMetadataValue('filename', $media->getBinaryContent()->getClientOriginalName());
+} elseif ($media->getBinaryContent() instanceof File) {
+$media->setName($media->getName() ?: $media->getBinaryContent()->getBasename());
+$media->setMetadataValue('filename', $media->getBinaryContent()->getBasename());
+}
+if (!$media->getName()) {
+throw new \RuntimeException('Please define a valid media\'s name');
+}
+}
+protected function doTransform(MediaInterface $media)
+{
+$this->fixBinaryContent($media);
+$this->fixFilename($media);
+if (!$media->getProviderReference()) {
+$media->setProviderReference($this->generateReferenceName($media));
+}
+if ($media->getBinaryContent()) {
+$media->setContentType($media->getBinaryContent()->getMimeType());
+$media->setSize($media->getBinaryContent()->getSize());
+}
+$media->setProviderStatus(MediaInterface::STATUS_OK);
+}
+public function updateMetadata(MediaInterface $media, $force = true)
+{
+$path = tempnam(sys_get_temp_dir(),'sonata_update_metadata');
+$fileObject = new \SplFileObject($path,'w');
+$fileObject->fwrite($this->getReferenceFile($media)->getContent());
+$media->setSize($fileObject->getSize());
+}
+public function generatePublicUrl(MediaInterface $media, $format)
+{
+if ($format =='reference') {
+$path = $this->getReferenceImage($media);
+} else {
+$path = sprintf('sonatamedia/files/%s/file.png', $format);
+}
+return $this->getCdn()->getPath($path, $media->getCdnIsFlushable());
+}
+public function getHelperProperties(MediaInterface $media, $format, $options = array())
+{
+return array_merge(array('title'=> $media->getName(),'thumbnail'=> $this->getReferenceImage($media),'file'=> $this->getReferenceImage($media),
+), $options);
+}
+public function generatePrivateUrl(MediaInterface $media, $format)
+{
+if ($format =='reference') {
+return $this->getReferenceImage($media);
+}
+return false;
+}
+protected function setFileContents(MediaInterface $media, $contents = null)
+{
+$file = $this->getFilesystem()->get(sprintf('%s/%s', $this->generatePath($media), $media->getProviderReference()), true);
+if (!$contents) {
+$contents = $media->getBinaryContent()->getRealPath();
+}
+$metadata = $this->metadata ? $this->metadata->get($media, $file->getName()) : array();
+$file->setContent(file_get_contents($contents), $metadata);
+}
+protected function generateReferenceName(MediaInterface $media)
+{
+return sha1($media->getName() . rand(11111, 99999)) .'.'. $media->getBinaryContent()->guessExtension();
+}
+public function getDownloadResponse(MediaInterface $media, $format, $mode, array $headers = array())
+{
+$headers = array_merge(array('Content-Type'=> $media->getContentType(),'Content-Disposition'=> sprintf('attachment; filename="%s"', $media->getMetadataValue('filename')),
+), $headers);
+if (!in_array($mode, array('http','X-Sendfile','X-Accel-Redirect'))) {
+throw new \RuntimeException('Invalid mode provided');
+}
+if ($mode =='http') {
+if ($format =='reference') {
+$file = $this->getReferenceFile($media);
+} else {
+$file = $this->getFilesystem()->get($this->generatePrivateUrl($media, $format));
+}
+return new StreamedResponse(function() use ($file) {
+echo $file->getContent();
+}, 200, $headers);
+}
+if (!$this->getFilesystem()->getAdapter() instanceof \Sonata\MediaBundle\Filesystem\Local) {
+throw new \RuntimeException('Cannot use X-Sendfile or X-Accel-Redirect with non \Sonata\MediaBundle\Filesystem\Local');
+}
+$filename = sprintf('%s/%s',
+$this->getFilesystem()->getAdapter()->getDirectory(),
+$this->generatePrivateUrl($media, $format)
+);
+return new BinaryFileResponse($filename, 200, $headers);
+}
+public function validate(ErrorElement $errorElement, MediaInterface $media)
+{
+if (!$media->getBinaryContent() instanceof \SplFileInfo) {
+return;
+}
+if ($media->getBinaryContent() instanceof UploadedFile) {
+$fileName = $media->getBinaryContent()->getClientOriginalName();
+} elseif ($media->getBinaryContent() instanceof File) {
+$fileName = $media->getBinaryContent()->getFilename();
+} else {
+throw new \RuntimeException(sprintf('Invalid binary content type: %s', get_class($media->getBinaryContent())));
+}
+if (!in_array(strtolower(pathinfo($fileName, PATHINFO_EXTENSION)), $this->allowedExtensions)) {
+$errorElement
+->with('binaryContent')
+->addViolation('Invalid extensions')
+->end();
+}
+if (!in_array($media->getBinaryContent()->getMimeType(), $this->allowedMimeTypes)) {
+$errorElement
+->with('binaryContent')
+->addViolation('Invalid mime type : '. $media->getBinaryContent()->getMimeType())
+->end();
+}
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\CDN\CDNInterface;
+use Sonata\MediaBundle\Generator\GeneratorInterface;
+use Sonata\MediaBundle\Thumbnail\ThumbnailInterface;
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+use Imagine\Image\ImagineInterface;
+use Gaufrette\Filesystem;
+class ImageProvider extends FileProvider
+{
+protected $imagineAdapter;
+public function __construct($name, Filesystem $filesystem, CDNInterface $cdn, GeneratorInterface $pathGenerator, ThumbnailInterface $thumbnail, array $allowedExtensions = array(), array $allowedMimeTypes = array(), ImagineInterface $adapter, MetadataBuilderInterface $metadata = null)
+{
+parent::__construct($name, $filesystem, $cdn, $pathGenerator, $thumbnail, $allowedExtensions, $allowedMimeTypes, $metadata);
+$this->imagineAdapter = $adapter;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description", null,"SonataMediaBundle", array('class'=>'fa fa-picture-o'));
+}
+public function getHelperProperties(MediaInterface $media, $format, $options = array())
+{
+if ($format =='reference') {
+$box = $media->getBox();
+} else {
+$resizerFormat = $this->getFormat($format);
+if ($resizerFormat === false) {
+throw new \RuntimeException(sprintf('The image format "%s" is not defined.
+                        Is the format registered in your ``sonata_media`` configuration?', $format));
+}
+$box = $this->resizer->getBox($media, $resizerFormat);
+}
+return array_merge(array('alt'=> $media->getName(),'title'=> $media->getName(),'src'=> $this->generatePublicUrl($media, $format),'width'=> $box->getWidth(),'height'=> $box->getHeight()
+), $options);
+}
+public function getReferenceImage(MediaInterface $media)
+{
+return sprintf('%s/%s',
+$this->generatePath($media),
+$media->getProviderReference()
+);
+}
+protected function doTransform(MediaInterface $media)
+{
+parent::doTransform($media);
+if (!is_object($media->getBinaryContent()) && !$media->getBinaryContent()) {
+return;
+}
+try {
+$image = $this->imagineAdapter->open($media->getBinaryContent()->getPathname());
+} catch (\RuntimeException $e) {
+$media->setProviderStatus(MediaInterface::STATUS_ERROR);
+return;
+}
+$size = $image->getSize();
+$media->setWidth($size->getWidth());
+$media->setHeight($size->getHeight());
+$media->setProviderStatus(MediaInterface::STATUS_OK);
+}
+public function updateMetadata(MediaInterface $media, $force = true)
+{
+try {
+$path = tempnam(sys_get_temp_dir(),'sonata_update_metadata');
+$fileObject = new \SplFileObject($path,'w');
+$fileObject->fwrite($this->getReferenceFile($media)->getContent());
+$image = $this->imagineAdapter->open($fileObject->getPathname());
+$size = $image->getSize();
+$media->setSize($fileObject->getSize());
+$media->setWidth($size->getWidth());
+$media->setHeight($size->getHeight());
+} catch (\LogicException $e) {
+$media->setProviderStatus(MediaInterface::STATUS_ERROR);
+$media->setSize(0);
+$media->setWidth(0);
+$media->setHeight(0);
+}
+}
+public function generatePublicUrl(MediaInterface $media, $format)
+{
+if ($format =='reference') {
+$path = $this->getReferenceImage($media);
+} else {
+$path = $this->thumbnail->generatePublicUrl($this, $media, $format);
+}
+return $this->getCdn()->getPath($path, $media->getCdnIsFlushable());
+}
+public function generatePrivateUrl(MediaInterface $media, $format)
+{
+return $this->thumbnail->generatePrivateUrl($this, $media, $format);
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\MediaProviderInterface;
+use Sonata\MediaBundle\Security\DownloadStrategyInterface;
+use Sonata\AdminBundle\Validator\ErrorElement;
+class Pool
+{
+protected $providers = array();
+protected $contexts = array();
+protected $downloadSecurities = array();
+protected $defaultContext;
+public function __construct($context)
+{
+$this->defaultContext = $context;
+}
+public function getProvider($name)
+{
+if (!isset($this->providers[$name])) {
+throw new \RuntimeException(sprintf('unable to retrieve the provider named : `%s`', $name));
+}
+return $this->providers[$name];
+}
+public function addProvider($name, MediaProviderInterface $instance)
+{
+$this->providers[$name] = $instance;
+}
+public function addDownloadSecurity($name, DownloadStrategyInterface $security)
+{
+$this->downloadSecurities[$name] = $security;
+}
+public function setProviders($providers)
+{
+$this->providers = $providers;
+}
+public function getProviders()
+{
+return $this->providers;
+}
+public function addContext($name, array $providers = array(), array $formats = array(), array $download = array())
+{
+if (!$this->hasContext($name)) {
+$this->contexts[$name] = array('providers'=> array(),'formats'=> array(),'download'=> array(),
+);
+}
+$this->contexts[$name]['providers'] = $providers;
+$this->contexts[$name]['formats'] = $formats;
+$this->contexts[$name]['download'] = $download;
+}
+public function hasContext($name)
+{
+return isset($this->contexts[$name]);
+}
+public function getContext($name)
+{
+if (!$this->hasContext($name)) {
+return null;
+}
+return $this->contexts[$name];
+}
+public function getContexts()
+{
+return $this->contexts;
+}
+public function getProviderNamesByContext($name)
+{
+$context = $this->getContext($name);
+if (!$context) {
+return null;
+}
+return $context['providers'];
+}
+public function getFormatNamesByContext($name)
+{
+$context = $this->getContext($name);
+if (!$context) {
+return null;
+}
+return $context['formats'];
+}
+public function getProvidersByContext($name)
+{
+$providers = array();
+if (!$this->hasContext($name)) {
+return $providers;
+}
+foreach ($this->getProviderNamesByContext($name) as $name) {
+$providers[] = $this->getProvider($name);
+}
+return $providers;
+}
+public function getProviderList()
+{
+$choices = array();
+foreach (array_keys($this->providers) as $name) {
+$choices[$name] = $name;
+}
+return $choices;
+}
+public function getDownloadSecurity(MediaInterface $media)
+{
+$context = $this->getContext($media->getContext());
+$id = $context['download']['strategy'];
+if (!isset($this->downloadSecurities[$id])) {
+throw new \RuntimeException('Unable to retrieve the download security : '. $id);
+}
+return $this->downloadSecurities[$id];
+}
+public function getDownloadMode(MediaInterface $media)
+{
+$context = $this->getContext($media->getContext());
+return $context['download']['mode'];
+}
+public function getDefaultContext()
+{
+return $this->defaultContext;
+}
+public function validate(ErrorElement $errorElement, MediaInterface $media)
+{
+$provider = $this->getProvider($media->getProviderName());
+$provider->validate($errorElement, $media);
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+class VimeoProvider extends BaseVideoProvider
+{
+public function getHelperProperties(MediaInterface $media, $format, $options = array())
+{
+$defaults = array('fp_version'=> 10,'fullscreen'=> true,'title'=> true,'byline'=> 0,'portrait'=> true,'color'=> null,'hd_off'=> 0,'js_api'=> null,'js_onLoad'=> 0,'js_swf_id'=> uniqid('vimeo_player_'),
+);
+$player_parameters = array_merge($defaults, isset($options['player_parameters']) ? $options['player_parameters'] : array());
+$box = $this->getBoxHelperProperties($media, $format, $options);
+$params = array('src'=> http_build_query($player_parameters),'id'=> $player_parameters['js_swf_id'],'frameborder'=> isset($options['frameborder']) ? $options['frameborder'] : 0,'width'=> $box->getWidth(),'height'=> $box->getHeight(),
+);
+return $params;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description", null,"SonataMediaBundle", array('class'=>'fa fa-vimeo-square'));
+}
+protected function fixBinaryContent(MediaInterface $media)
+{
+if (!$media->getBinaryContent()) {
+return;
+}
+if (preg_match("/vimeo\.com\/(\d+)/", $media->getBinaryContent(), $matches)) {
+$media->setBinaryContent($matches[1]);
+}
+}
+protected function doTransform(MediaInterface $media)
+{
+$this->fixBinaryContent($media);
+if (!$media->getBinaryContent()) {
+return;
+}
+$media->setProviderName($this->name);
+$media->setProviderReference($media->getBinaryContent());
+$media->setProviderStatus(MediaInterface::STATUS_OK);
+$this->updateMetadata($media, true);
+}
+public function updateMetadata(MediaInterface $media, $force = false)
+{
+$url = sprintf('http://vimeo.com/api/oembed.json?url=http://vimeo.com/%s', $media->getProviderReference());
+try {
+$metadata = $this->getMetadata($media, $url);
+} catch (\RuntimeException $e) {
+$media->setEnabled(false);
+$media->setProviderStatus(MediaInterface::STATUS_ERROR);
+return;
+}
+$media->setProviderMetadata($metadata);
+if ($force) {
+$media->setName($metadata['title']);
+$media->setDescription($metadata['description']);
+$media->setAuthorName($metadata['author_name']);
+}
+$media->setHeight($metadata['height']);
+$media->setWidth($metadata['width']);
+$media->setLength($metadata['duration']);
+$media->setContentType('video/x-flv');
+}
+public function getDownloadResponse(MediaInterface $media, $format, $mode, array $headers = array())
+{
+return new RedirectResponse(sprintf('http://vimeo.com/%s', $media->getProviderReference()), 302, $headers);
+}
+}
+}
+namespace Sonata\MediaBundle\Provider
+{
+use Sonata\CoreBundle\Model\Metadata;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Gaufrette\Filesystem;
+use Sonata\MediaBundle\CDN\CDNInterface;
+use Sonata\MediaBundle\Generator\GeneratorInterface;
+use Buzz\Browser;
+use Sonata\MediaBundle\Thumbnail\ThumbnailInterface;
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+class YouTubeProvider extends BaseVideoProvider
+{
+protected $html5;
+public function __construct($name, Filesystem $filesystem, CDNInterface $cdn, GeneratorInterface $pathGenerator, ThumbnailInterface $thumbnail, Browser $browser, MetadataBuilderInterface $metadata = null, $html5 = false)
+{
+parent::__construct($name, $filesystem, $cdn, $pathGenerator, $thumbnail, $browser, $metadata);
+$this->html5 = $html5;
+}
+public function getProviderMetadata()
+{
+return new Metadata($this->getName(), $this->getName().".description", null,"SonataMediaBundle", array('class'=>'fa fa-youtube'));
+}
+public function getHelperProperties(MediaInterface $media, $format, $options = array())
+{
+if (!isset($options['html5'])) {
+$options['html5'] = $this->html5;
+}
+$default_player_url_parameters = array('rel'=> 0,'autoplay'=> 0,'loop'=> 0,'enablejsapi'=> 0,'playerapiid'=> null,'disablekb'=> 0,'egm'=> 0,'border'=> 0,'color1'=> null,'color2'=> null,'fs'=> 1,'start'=> 0,'hd'=> 1,'showsearch'=> 0,'showinfo'=> 0,'iv_load_policy'=> 1,'cc_load_policy'=> 1,'wmode'=>'window');
+$default_player_parameters = array('border'=> $default_player_url_parameters['border'],'allowFullScreen'=> $default_player_url_parameters['fs'] =='1'? true : false,'allowScriptAccess'=> isset($options['allowScriptAccess']) ? $options['allowScriptAccess'] :'always','wmode'=> $default_player_url_parameters['wmode']
+);
+$player_url_parameters = array_merge($default_player_url_parameters, isset($options['player_url_parameters']) ? $options['player_url_parameters'] : array());
+$box = $this->getBoxHelperProperties($media, $format, $options);
+$player_parameters = array_merge($default_player_parameters, isset($options['player_parameters']) ? $options['player_parameters'] : array(), array('width'=> $box->getWidth(),'height'=> $box->getHeight()
+));
+$params = array('html5'=> $options['html5'],'player_url_parameters'=> http_build_query($player_url_parameters),'player_parameters'=> $player_parameters
+);
+return $params;
+}
+protected function fixBinaryContent(MediaInterface $media)
+{
+if (!$media->getBinaryContent()) {
+return;
+}
+if (preg_match("/(?<=v(\=|\/))([-a-zA-Z0-9_]+)|(?<=youtu\.be\/)([-a-zA-Z0-9_]+)/", $media->getBinaryContent(), $matches)) {
+$media->setBinaryContent($matches[2]);
+}
+}
+protected function doTransform(MediaInterface $media)
+{
+$this->fixBinaryContent($media);
+if (!$media->getBinaryContent()) {
+return;
+}
+$media->setProviderName($this->name);
+$media->setProviderStatus(MediaInterface::STATUS_OK);
+$media->setProviderReference($media->getBinaryContent());
+$this->updateMetadata($media, true);
+}
+public function updateMetadata(MediaInterface $media, $force = false)
+{
+$url = sprintf('http://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=%s&format=json', $media->getProviderReference());
+try {
+$metadata = $this->getMetadata($media, $url);
+} catch (\RuntimeException $e) {
+$media->setEnabled(false);
+$media->setProviderStatus(MediaInterface::STATUS_ERROR);
+return;
+}
+$media->setProviderMetadata($metadata);
+if ($force) {
+$media->setName($metadata['title']);
+$media->setAuthorName($metadata['author_name']);
+}
+$media->setHeight($metadata['height']);
+$media->setWidth($metadata['width']);
+$media->setContentType('video/x-flv');
+}
+public function getDownloadResponse(MediaInterface $media, $format, $mode, array $headers = array())
+{
+return new RedirectResponse(sprintf('http://www.youtube.com/watch?v=%s', $media->getProviderReference()), 302, $headers);
+}
+}
+}
+namespace Sonata\MediaBundle\Resizer
+{
+use Gaufrette\File;
+use Sonata\MediaBundle\Model\MediaInterface;
+interface ResizerInterface
+{
+public function resize(MediaInterface $media, File $in, File $out, $format, array $settings);
+public function getBox(MediaInterface $media, array $settings);
+}
+}
+namespace Sonata\MediaBundle\Resizer
+{
+use Imagine\Image\ImagineInterface;
+use Imagine\Image\Box;
+use Gaufrette\File;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Imagine\Image\ImageInterface;
+use Imagine\Exception\InvalidArgumentException;
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+class SimpleResizer implements ResizerInterface
+{
+protected $adapter;
+protected $mode;
+protected $metadata;
+public function __construct(ImagineInterface $adapter, $mode, MetadataBuilderInterface $metadata)
+{
+$this->adapter = $adapter;
+$this->mode = $mode;
+$this->metadata = $metadata;
+}
+public function resize(MediaInterface $media, File $in, File $out, $format, array $settings)
+{
+if (!isset($settings['width'])) {
+throw new \RuntimeException(sprintf('Width parameter is missing in context "%s" for provider "%s"', $media->getContext(), $media->getProviderName()));
+}
+$image = $this->adapter->load($in->getContent());
+$content = $image
+->thumbnail($this->getBox($media, $settings), $this->mode)
+->get($format, array('quality'=> $settings['quality']));
+$out->setContent($content, $this->metadata->get($media, $out->getName()));
+}
+public function getBox(MediaInterface $media, array $settings)
+{
+$size = $media->getBox();
+if ($settings['width'] == null && $settings['height'] == null) {
+throw new \RuntimeException(sprintf('Width/Height parameter is missing in context "%s" for provider "%s". Please add at least one parameter.', $media->getContext(), $media->getProviderName()));
+}
+if ($settings['height'] == null) {
+$settings['height'] = (int) ($settings['width'] * $size->getHeight() / $size->getWidth());
+}
+if ($settings['width'] == null) {
+$settings['width'] = (int) ($settings['height'] * $size->getWidth() / $size->getHeight());
+}
+return $this->computeBox($media, $settings);
+}
+private function computeBox(MediaInterface $media, array $settings)
+{
+if ($this->mode !== ImageInterface::THUMBNAIL_INSET && $this->mode !== ImageInterface::THUMBNAIL_OUTBOUND) {
+throw new InvalidArgumentException('Invalid mode specified');
+}
+$size = $media->getBox();
+$ratios = array(
+$settings['width'] / $size->getWidth(),
+$settings['height'] / $size->getHeight()
+);
+if ($this->mode === ImageInterface::THUMBNAIL_INSET) {
+$ratio = min($ratios);
+} else {
+$ratio = max($ratios);
+}
+return $size->scale($ratio);
+}
+}
+}
+namespace Sonata\MediaBundle\Resizer
+{
+use Imagine\Image\ImagineInterface;
+use Imagine\Image\Box;
+use Imagine\Image\Point;
+use Gaufrette\File;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Metadata\MetadataBuilderInterface;
+class SquareResizer implements ResizerInterface
+{
+protected $adapter;
+protected $mode;
+public function __construct(ImagineInterface $adapter, $mode, MetadataBuilderInterface $metadata)
+{
+$this->adapter = $adapter;
+$this->mode = $mode;
+$this->metadata = $metadata;
+}
+public function resize(MediaInterface $media, File $in, File $out, $format, array $settings)
+{
+if (!isset($settings['width'])) {
+throw new \RuntimeException(sprintf('Width parameter is missing in context "%s" for provider "%s"', $media->getContext(), $media->getProviderName()));
+}
+$image = $this->adapter->load($in->getContent());
+$size = $media->getBox();
+if (null != $settings['height']) {
+if ($size->getHeight() > $size->getWidth()) {
+$higher = $size->getHeight();
+$lower = $size->getWidth();
+} else {
+$higher = $size->getWidth();
+$lower = $size->getHeight();
+}
+$crop = $higher - $lower;
+if ($crop > 0) {
+$point = $higher == $size->getHeight() ? new Point(0, 0) : new Point($crop / 2, 0);
+$image->crop($point, new Box($lower, $lower));
+$size = $image->getSize();
+}
+}
+$settings['height'] = (int) ($settings['width'] * $size->getHeight() / $size->getWidth());
+if ($settings['height'] < $size->getHeight() && $settings['width'] < $size->getWidth()) {
+$content = $image
+->thumbnail(new Box($settings['width'], $settings['height']), $this->mode)
+->get($format, array('quality'=> $settings['quality']));
+} else {
+$content = $image->get($format, array('quality'=> $settings['quality']));
+}
+$out->setContent($content, $this->metadata->get($media, $out->getName()));
+}
+public function getBox(MediaInterface $media, array $settings)
+{
+$size = $media->getBox();
+if (null != $settings['height']) {
+if ($size->getHeight() > $size->getWidth()) {
+$higher = $size->getHeight();
+$lower = $size->getWidth();
+} else {
+$higher = $size->getWidth();
+$lower = $size->getHeight();
+}
+if ($higher - $lower > 0) {
+return new Box($lower, $lower);
+}
+}
+$settings['height'] = (int) ($settings['width'] * $size->getHeight() / $size->getWidth());
+if ($settings['height'] < $size->getHeight() && $settings['width'] < $size->getWidth()) {
+return new Box($settings['width'], $settings['height']);
+}
+return $size;
+}
+}
+}
+namespace Sonata\MediaBundle\Security
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\Request;
+interface DownloadStrategyInterface
+{
+public function isGranted(MediaInterface $media, Request $request);
+public function getDescription();
+}
+}
+namespace Sonata\MediaBundle\Security
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Translation\TranslatorInterface;
+class ForbiddenDownloadStrategy implements DownloadStrategyInterface
+{
+protected $translator;
+public function __construct(TranslatorInterface $translator)
+{
+$this->translator = $translator;
+}
+public function isGranted(MediaInterface $media, Request $request)
+{
+return false;
+}
+public function getDescription()
+{
+return $this->translator->trans('description.forbidden_download_strategy', array(),'SonataMediaBundle');
+}
+}
+}
+namespace Sonata\MediaBundle\Security
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Translation\TranslatorInterface;
+class PublicDownloadStrategy implements DownloadStrategyInterface
+{
+protected $translator;
+public function __construct(TranslatorInterface $translator)
+{
+$this->translator = $translator;
+}
+public function isGranted(MediaInterface $media, Request $request)
+{
+return true;
+}
+public function getDescription()
+{
+return $this->translator->trans('description.public_download_strategy', array(),'SonataMediaBundle');
+}
+}
+}
+namespace Sonata\MediaBundle\Security
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Security\Core\SecurityContextInterface;
+use Symfony\Component\Translation\TranslatorInterface;
+class RolesDownloadStrategy implements DownloadStrategyInterface
+{
+protected $roles;
+protected $security;
+protected $translator;
+public function __construct(TranslatorInterface $translator, SecurityContextInterface $security, array $roles = array())
+{
+$this->roles = $roles;
+$this->security = $security;
+$this->translator = $translator;
+}
+public function isGranted(MediaInterface $media, Request $request)
+{
+return $this->security->getToken() && $this->security->isGranted($this->roles);
+}
+public function getDescription()
+{
+return $this->translator->trans('description.roles_download_strategy', array('%roles%'=>'<code>'.implode('</code>, <code>', $this->roles).'</code>'),'SonataMediaBundle');
+}
+}
+}
+namespace Sonata\MediaBundle\Security
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+class SessionDownloadStrategy implements DownloadStrategyInterface
+{
+protected $container;
+protected $translator;
+protected $times;
+protected $sessionKey ='sonata/media/session/times';
+public function __construct(TranslatorInterface $translator, ContainerInterface $container, $times)
+{
+$this->times = $times;
+$this->container = $container;
+$this->translator = $translator;
+}
+public function isGranted(MediaInterface $media, Request $request)
+{
+if (!$this->container->has('session')) {
+return false;
+}
+$times = $this->getSession()->get($this->sessionKey, 0);
+if ($times >= $this->times) {
+return false;
+}
+$times++;
+$this->getSession()->set($this->sessionKey, $times);
+return true;
+}
+public function getDescription()
+{
+return $this->translator->trans('description.session_download_strategy', array('%times%'=> $this->times),'SonataMediaBundle');
+}
+private function getSession()
+{
+return $this->container->get('session');
+}
+}
+}
+namespace Symfony\Component\Templating\Helper
+{
+interface HelperInterface
+{
+public function getName();
+public function setCharset($charset);
+public function getCharset();
+}
+}
+namespace Symfony\Component\Templating\Helper
+{
+abstract class Helper implements HelperInterface
+{
+protected $charset ='UTF-8';
+public function setCharset($charset)
+{
+$this->charset = $charset;
+}
+public function getCharset()
+{
+return $this->charset;
+}
+}
+}
+namespace Sonata\MediaBundle\Templating\Helper
+{
+use Symfony\Component\Templating\Helper\Helper;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\MediaProviderInterface;
+use Sonata\MediaBundle\Provider\Pool;
+use Symfony\Component\Templating\EngineInterface;
+class MediaHelper extends Helper
+{
+protected $pool = null;
+protected $templating = null;
+public function __construct(Pool $pool, EngineInterface $templating)
+{
+$this->pool = $pool;
+$this->templating = $templating;
+}
+public function getName()
+{
+return'sonata_media';
+}
+public function media($media, $format, $options = array())
+{
+if (!$media) {
+return'';
+}
+$provider = $this->getProvider($media);
+$format = $provider->getFormatName($media, $format);
+$options = $provider->getHelperProperties($media, $format, $options);
+return $this->templating->render($provider->getTemplate('helper_view'), array('media'=> $media,'format'=> $format,'options'=> $options,
+));
+}
+private function getProvider(MediaInterface $media)
+{
+return $this->pool->getProvider($media->getProviderName());
+}
+public function thumbnail($media, $format, $options = array())
+{
+if (!$media) {
+return'';
+}
+$provider = $this->getProvider($media);
+$format = $provider->getFormatName($media, $format);
+$formatDefinition = $provider->getFormat($format);
+$options = array_merge(array('title'=> $media->getName(),'width'=> $formatDefinition['width'],
+), $options);
+$options['src'] = $provider->generatePublicUrl($media, $format);
+return $this->getTemplating()->render($provider->getTemplate('helper_thumbnail'), array('media'=> $media,'options'=> $options,
+));
+}
+public function path($media, $format)
+{
+if (!$media) {
+return'';
+}
+$provider = $this->getProvider($media);
+$format = $provider->getFormatName($media, $format);
+return $provider->generatePublicUrl($media, $format);
+}
+}
+}
+namespace Sonata\MediaBundle\Thumbnail
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\MediaProviderInterface;
+interface ThumbnailInterface
+{
+public function generatePublicUrl(MediaProviderInterface $provider, MediaInterface $media, $format);
+public function generatePrivateUrl(MediaProviderInterface $provider, MediaInterface $media, $format);
+public function generate(MediaProviderInterface $provider, MediaInterface $media);
+public function delete(MediaProviderInterface $provider, MediaInterface $media);
+}
+}
+namespace Sonata\MediaBundle\Thumbnail
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\MediaProviderInterface;
+use Sonata\NotificationBundle\Backend\BackendInterface;
+class ConsumerThumbnail implements ThumbnailInterface
+{
+protected $id;
+protected $thumbnail;
+protected $backend;
+public function __construct($id, ThumbnailInterface $thumbnail, BackendInterface $backend)
+{
+$this->id = $id;
+$this->thumbnail = $thumbnail;
+$this->backend = $backend;
+}
+public function generatePublicUrl(MediaProviderInterface $provider, MediaInterface $media, $format)
+{
+return $this->thumbnail->generatePrivateUrl($provider, $media, $format);
+}
+public function generatePrivateUrl(MediaProviderInterface $provider, MediaInterface $media, $format)
+{
+return $this->thumbnail->generatePrivateUrl($provider, $media, $format);
+}
+public function generate(MediaProviderInterface $provider, MediaInterface $media)
+{
+$this->backend->createAndPublish('sonata.media.create_thumbnail', array('thumbnailId'=> $this->id,'mediaId'=> $media->getId(),'providerReference'=> $media->getProviderReference(),
+));
+}
+public function delete(MediaProviderInterface $provider, MediaInterface $media)
+{
+return $this->thumbnail->delete($provider, $media);
+}
+}
+}
+namespace Sonata\MediaBundle\Thumbnail
+{
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\MediaProviderInterface;
+class FormatThumbnail implements ThumbnailInterface
+{
+private $defaultFormat;
+public function __construct($defaultFormat)
+{
+$this->defaultFormat = $defaultFormat;
+}
+public function generatePublicUrl(MediaProviderInterface $provider, MediaInterface $media, $format)
+{
+if ($format =='reference') {
+$path = $provider->getReferenceImage($media);
+} else {
+$path = sprintf('%s/thumb_%s_%s.%s', $provider->generatePath($media), $media->getId(), $format, $this->getExtension($media));
+}
+return $path;
+}
+public function generatePrivateUrl(MediaProviderInterface $provider, MediaInterface $media, $format)
+{
+return sprintf('%s/thumb_%s_%s.%s',
+$provider->generatePath($media),
+$media->getId(),
+$format,
+$this->getExtension($media)
+);
+}
+public function generate(MediaProviderInterface $provider, MediaInterface $media)
+{
+if (!$provider->requireThumbnails()) {
+return;
+}
+$referenceFile = $provider->getReferenceFile($media);
+if (!$referenceFile->exists()) {
+return;
+}
+foreach ($provider->getFormats() as $format => $settings) {
+if (substr($format, 0, strlen($media->getContext())) == $media->getContext() || $format ==='admin') {
+$provider->getResizer()->resize(
+$media,
+$referenceFile,
+$provider->getFilesystem()->get($provider->generatePrivateUrl($media, $format), true),
+$this->getExtension($media),
+$settings
+);
+}
+}
+}
+public function delete(MediaProviderInterface $provider, MediaInterface $media)
+{
+foreach ($provider->getFormats() as $format => $definition) {
+$path = $provider->generatePrivateUrl($media, $format);
+if ($path && $provider->getFilesystem()->has($path)) {
+$provider->getFilesystem()->delete($path);
+}
+}
+}
+protected function getExtension(MediaInterface $media)
+{
+$ext = $media->getExtension();
+if (!is_string($ext) || strlen($ext) < 3) {
+$ext = $this->defaultFormat;
+}
+return $ext;
+}
+}
+}
+namespace Sonata\MediaBundle\Twig\Extension
+{
+use Sonata\MediaBundle\Twig\TokenParser\MediaTokenParser;
+use Sonata\MediaBundle\Twig\TokenParser\ThumbnailTokenParser;
+use Sonata\MediaBundle\Twig\TokenParser\PathTokenParser;
+use Sonata\CoreBundle\Model\ManagerInterface;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\Pool;
+class MediaExtension extends \Twig_Extension
+{
+protected $mediaService;
+protected $resources = array();
+protected $mediaManager;
+protected $environment;
+public function __construct(Pool $mediaService, ManagerInterface $mediaManager)
+{
+$this->mediaService = $mediaService;
+$this->mediaManager = $mediaManager;
+}
+public function getTokenParsers()
+{
+return array(
+new MediaTokenParser($this->getName()),
+new ThumbnailTokenParser($this->getName()),
+new PathTokenParser($this->getName()),
+);
+}
+public function initRuntime(\Twig_Environment $environment)
+{
+$this->environment = $environment;
+}
+public function getName()
+{
+return'sonata_media';
+}
+public function media($media = null, $format, $options = array())
+{
+$media = $this->getMedia($media);
+if (!$media) {
+return'';
+}
+$provider = $this
+->getMediaService()
+->getProvider($media->getProviderName());
+$format = $provider->getFormatName($media, $format);
+$options = $provider->getHelperProperties($media, $format, $options);
+return $this->render($provider->getTemplate('helper_view'), array('media'=> $media,'format'=> $format,'options'=> $options,
+));
+}
+private function getMedia($media)
+{
+if (!$media instanceof MediaInterface && strlen($media) > 0) {
+$media = $this->mediaManager->findOneBy(array('id'=> $media
+));
+}
+if (!$media instanceof MediaInterface) {
+return false;
+}
+if ($media->getProviderStatus() !== MediaInterface::STATUS_OK) {
+return false;
+}
+return $media;
+}
+public function thumbnail($media = null, $format, $options = array())
+{
+$media = $this->getMedia($media);
+if (!$media) {
+return'';
+}
+$provider = $this->getMediaService()
+->getProvider($media->getProviderName());
+$format = $provider->getFormatName($media, $format);
+$format_definition = $provider->getFormat($format);
+$defaultOptions = array('title'=> $media->getName(),
+);
+if ($format_definition['width']) {
+$defaultOptions['width'] = $format_definition['width'];
+}
+if ($format_definition['height']) {
+$defaultOptions['height'] = $format_definition['height'];
+}
+$options = array_merge($defaultOptions, $options);
+$options['src'] = $provider->generatePublicUrl($media, $format);
+return $this->render($provider->getTemplate('helper_thumbnail'), array('media'=> $media,'options'=> $options,
+));
+}
+public function render($template, array $parameters = array())
+{
+if (!isset($this->resources[$template])) {
+$this->resources[$template] = $this->environment->loadTemplate($template);
+}
+return $this->resources[$template]->render($parameters);
+}
+public function path($media = null, $format)
+{
+$media = $this->getMedia($media);
+if (!$media) {
+return'';
+}
+$provider = $this->getMediaService()
+->getProvider($media->getProviderName());
+$format = $provider->getFormatName($media, $format);
+return $provider->generatePublicUrl($media, $format);
+}
+public function getMediaService()
+{
+return $this->mediaService;
+}
+}
+}
+namespace
+{
+interface Twig_NodeInterface extends Countable, IteratorAggregate
+{
+public function compile(Twig_Compiler $compiler);
+public function getLine();
+public function getNodeTag();
+}
+}
+namespace
+{
+class Twig_Node implements Twig_NodeInterface
+{
+protected $nodes;
+protected $attributes;
+protected $lineno;
+protected $tag;
+public function __construct(array $nodes = array(), array $attributes = array(), $lineno = 0, $tag = null)
+{
+$this->nodes = $nodes;
+$this->attributes = $attributes;
+$this->lineno = $lineno;
+$this->tag = $tag;
+}
+public function __toString()
+{
+$attributes = array();
+foreach ($this->attributes as $name => $value) {
+$attributes[] = sprintf('%s: %s', $name, str_replace("\n",'', var_export($value, true)));
+}
+$repr = array(get_class($this).'('.implode(', ', $attributes));
+if (count($this->nodes)) {
+foreach ($this->nodes as $name => $node) {
+$len = strlen($name) + 4;
+$noderepr = array();
+foreach (explode("\n", (string) $node) as $line) {
+$noderepr[] = str_repeat(' ', $len).$line;
+}
+$repr[] = sprintf('  %s: %s', $name, ltrim(implode("\n", $noderepr)));
+}
+$repr[] =')';
+} else {
+$repr[0] .=')';
+}
+return implode("\n", $repr);
+}
+public function toXml($asDom = false)
+{
+$dom = new DOMDocument('1.0','UTF-8');
+$dom->formatOutput = true;
+$dom->appendChild($xml = $dom->createElement('twig'));
+$xml->appendChild($node = $dom->createElement('node'));
+$node->setAttribute('class', get_class($this));
+foreach ($this->attributes as $name => $value) {
+$node->appendChild($attribute = $dom->createElement('attribute'));
+$attribute->setAttribute('name', $name);
+$attribute->appendChild($dom->createTextNode($value));
+}
+foreach ($this->nodes as $name => $n) {
+if (null === $n) {
+continue;
+}
+$child = $n->toXml(true)->getElementsByTagName('node')->item(0);
+$child = $dom->importNode($child, true);
+$child->setAttribute('name', $name);
+$node->appendChild($child);
+}
+return $asDom ? $dom : $dom->saveXml();
+}
+public function compile(Twig_Compiler $compiler)
+{
+foreach ($this->nodes as $node) {
+$node->compile($compiler);
+}
+}
+public function getLine()
+{
+return $this->lineno;
+}
+public function getNodeTag()
+{
+return $this->tag;
+}
+public function hasAttribute($name)
+{
+return array_key_exists($name, $this->attributes);
+}
+public function getAttribute($name)
+{
+if (!array_key_exists($name, $this->attributes)) {
+throw new LogicException(sprintf('Attribute "%s" does not exist for Node "%s".', $name, get_class($this)));
+}
+return $this->attributes[$name];
+}
+public function setAttribute($name, $value)
+{
+$this->attributes[$name] = $value;
+}
+public function removeAttribute($name)
+{
+unset($this->attributes[$name]);
+}
+public function hasNode($name)
+{
+return array_key_exists($name, $this->nodes);
+}
+public function getNode($name)
+{
+if (!array_key_exists($name, $this->nodes)) {
+throw new LogicException(sprintf('Node "%s" does not exist for Node "%s".', $name, get_class($this)));
+}
+return $this->nodes[$name];
+}
+public function setNode($name, $node = null)
+{
+$this->nodes[$name] = $node;
+}
+public function removeNode($name)
+{
+unset($this->nodes[$name]);
+}
+public function count()
+{
+return count($this->nodes);
+}
+public function getIterator()
+{
+return new ArrayIterator($this->nodes);
+}
+}
+}
+namespace Sonata\MediaBundle\Twig\Node
+{
+class MediaNode extends \Twig_Node
+{
+protected $extensionName;
+public function __construct($extensionName, \Twig_Node_Expression $media, \Twig_Node_Expression $format, \Twig_Node_Expression $attributes, $lineno, $tag = null)
+{
+$this->extensionName = $extensionName;
+parent::__construct(array('media'=> $media,'format'=> $format,'attributes'=> $attributes), array(), $lineno, $tag);
+}
+public function compile(\Twig_Compiler $compiler)
+{
+$compiler
+->addDebugInfo($this)
+->write(sprintf("echo \$this->env->getExtension('%s')->media(", $this->extensionName))
+->subcompile($this->getNode('media'))
+->raw(', ')
+->subcompile($this->getNode('format'))
+->raw(', ')
+->subcompile($this->getNode('attributes'))
+->raw(");\n")
+;
+}
+}
+}
+namespace Sonata\MediaBundle\Twig\Node
+{
+class PathNode extends \Twig_Node
+{
+protected $extensionName;
+public function __construct($extensionName, \Twig_Node_Expression $media, \Twig_Node_Expression $format, $lineno, $tag = null)
+{
+$this->extensionName = $extensionName;
+parent::__construct(array('media'=> $media,'format'=> $format), array(), $lineno, $tag);
+}
+public function compile(\Twig_Compiler $compiler)
+{
+$compiler
+->addDebugInfo($this)
+->write(sprintf("echo \$this->env->getExtension('%s')->path(", $this->extensionName))
+->subcompile($this->getNode('media'))
+->raw(', ')
+->subcompile($this->getNode('format'))
+->raw(");\n")
+;
+}
+}
+}
+namespace Sonata\MediaBundle\Twig\Node
+{
+class ThumbnailNode extends \Twig_Node
+{
+protected $extensionName;
+public function __construct($extensionName, \Twig_Node_Expression $media, \Twig_Node_Expression $format, \Twig_Node_Expression $attributes, $lineno, $tag = null)
+{
+$this->extensionName = $extensionName;
+parent::__construct(array('media'=> $media,'format'=> $format,'attributes'=> $attributes), array(), $lineno, $tag);
+}
+public function compile(\Twig_Compiler $compiler)
+{
+$compiler
+->addDebugInfo($this)
+->write(sprintf("echo \$this->env->getExtension('%s')->thumbnail(", $this->extensionName))
+->subcompile($this->getNode('media'))
+->raw(', ')
+->subcompile($this->getNode('format'))
+->raw(', ')
+->subcompile($this->getNode('attributes'))
+->raw(");\n")
+;
 }
 }
 }

@@ -13,3 +13,7 @@ raha_contact:
     defaults: { _controller: RahaHomeBundle:Default:contact }
     requirements:
         _method: GET|POST
+
+raha:
+    resource: "@RahaHomeBundle/Controller"
+    type:   annotation

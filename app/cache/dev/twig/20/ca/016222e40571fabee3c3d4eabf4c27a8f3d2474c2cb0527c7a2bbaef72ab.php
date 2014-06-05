@@ -74,24 +74,24 @@ class __TwigTemplate_20ca016222e40571fabee3c3d4eabf4c27a8f3d2474c2cb0527c7a2bbae
                 ";
         // line 23
         $this->displayBlock('sidebar', $context, $blocks);
-        // line 24
+        // line 26
         echo "            </aside>
 
             <div id=\"footer\">
                 ";
-        // line 27
+        // line 29
         $this->displayBlock('footer', $context, $blocks);
-        // line 30
+        // line 32
         echo "            </div>
             
             
             ";
-        // line 33
+        // line 35
         $this->displayBlock('javascripts', $context, $blocks);
-        // line 34
+        // line 36
         echo "            <script src=\"//code.jquery.com/jquery.min.js\"></script>
             <script src=\"";
-        // line 35
+        // line 37
         echo twig_escape_filter($this->env, $this->env->getExtension('assets')->getAssetUrl("bundles/pinanobootstrap3/js/bootstrap.min.js"), "html", null, true);
         echo "\"></script>
                  <script type=\"text/javascript\">
@@ -145,17 +145,20 @@ class __TwigTemplate_20ca016222e40571fabee3c3d4eabf4c27a8f3d2474c2cb0527c7a2bbae
     // line 23
     public function block_sidebar($context, array $blocks = array())
     {
+        // line 24
+        echo "                    
+                ";
     }
 
-    // line 27
+    // line 29
     public function block_footer($context, array $blocks = array())
     {
-        // line 28
+        // line 30
         echo "                  Copyright - Raha
                 ";
     }
 
-    // line 33
+    // line 35
     public function block_javascripts($context, array $blocks = array())
     {
     }
@@ -172,6 +175,6 @@ class __TwigTemplate_20ca016222e40571fabee3c3d4eabf4c27a8f3d2474c2cb0527c7a2bbae
 
     public function getDebugInfo()
     {
-        return array (  159 => 33,  154 => 28,  151 => 27,  146 => 23,  141 => 20,  135 => 17,  129 => 16,  123 => 15,  118 => 10,  113 => 5,  95 => 35,  92 => 34,  90 => 33,  85 => 30,  83 => 27,  78 => 24,  76 => 23,  72 => 21,  70 => 20,  66 => 18,  63 => 17,  60 => 16,  58 => 15,  50 => 11,  48 => 10,  42 => 7,  38 => 6,  34 => 5,  28 => 1,);
+        return array (  162 => 35,  157 => 30,  154 => 29,  149 => 24,  146 => 23,  141 => 20,  135 => 17,  129 => 16,  123 => 15,  118 => 10,  113 => 5,  95 => 37,  92 => 36,  90 => 35,  78 => 26,  76 => 23,  72 => 21,  70 => 20,  66 => 18,  63 => 17,  58 => 15,  50 => 11,  42 => 7,  38 => 6,  34 => 5,  108 => 47,  101 => 43,  93 => 38,  85 => 32,  83 => 29,  79 => 29,  77 => 28,  68 => 22,  60 => 16,  57 => 16,  53 => 14,  51 => 13,  48 => 10,  46 => 11,  41 => 9,  35 => 8,  31 => 6,  28 => 1,);
     }
 }

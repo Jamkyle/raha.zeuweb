@@ -43,9 +43,12 @@ class __TwigTemplate_4db10e0b7a325edeb7edf2f6b54c42893016a1061fe85be24619d140b23
         echo $this->env->getExtension('routing')->getPath("raha_contact");
         echo "\">Contact</a></li>
         <li class=\"dropdown\">
-          <a href=\"#\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">Extension<b class=\"caret\"></b></a>
+          <a href=\"#\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">Page<b class=\"caret\"></b></a>
           <ul class=\"dropdown-menu\">
-            <li><a href=\"#\">Action</a></li>
+            <li><a href=\"";
+        // line 21
+        echo $this->env->getExtension('routing')->getPath("article");
+        echo "\">Article</a></li>
             <li><a href=\"#\">Another action</a></li>
             <li><a href=\"#\">Something else here</a></li>
             <li class=\"divider\"></li>
@@ -72,6 +75,6 @@ class __TwigTemplate_4db10e0b7a325edeb7edf2f6b54c42893016a1061fe85be24619d140b23
 
     public function getDebugInfo()
     {
-        return array (  43 => 17,  38 => 15,  34 => 14,  19 => 1,);
+        return array (  50 => 21,  43 => 17,  38 => 15,  34 => 14,  19 => 1,);
     }
 }
