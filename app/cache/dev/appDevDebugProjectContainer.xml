@@ -3706,7 +3706,7 @@
         </argument>
         <argument type="service">
           <service class="Symfony\Component\Security\Core\Authentication\Provider\AnonymousAuthenticationProvider" public="false">
-            <argument>539067a9b1774</argument>
+            <argument>5391c70819eff</argument>
           </service>
         </argument>
       </argument>
@@ -3834,7 +3834,7 @@
           </service>
         </argument>
         <argument type="collection">
-          <argument>IS_AUTHENTICATED_ANONYMOUSLY</argument>
+          <argument>ROLE_ADMIN</argument>
         </argument>
         <argument>null</argument>
       </call>
@@ -4124,7 +4124,7 @@
         <argument type="service">
           <service class="Symfony\Component\Security\Http\Firewall\AnonymousAuthenticationListener" public="false">
             <argument type="service" id="security.context"/>
-            <argument>539067a9b1774</argument>
+            <argument>5391c70819eff</argument>
             <argument type="service" id="monolog.logger.security" on-invalid="null"/>
           </service>
         </argument>
@@ -5573,6 +5573,13 @@
           <argument>sonata.media.provider.file</argument>
         </argument>
         <argument type="collection">
+          <argument key="default_thumbnail" type="collection">
+            <argument key="width">300</argument>
+            <argument key="height">200</argument>
+            <argument key="quality">70</argument>
+            <argument key="format">jpg</argument>
+            <argument key="constraint">true</argument>
+          </argument>
           <argument key="default_small" type="collection">
             <argument key="width">100</argument>
             <argument key="quality">70</argument>
@@ -5581,7 +5588,7 @@
             <argument key="constraint">true</argument>
           </argument>
           <argument key="default_big" type="collection">
-            <argument key="width">500</argument>
+            <argument key="width">940</argument>
             <argument key="quality">70</argument>
             <argument key="height">false</argument>
             <argument key="format">jpg</argument>
@@ -5648,6 +5655,16 @@
         </argument>
       </call>
       <call method="addFormat">
+        <argument>default_thumbnail</argument>
+        <argument type="collection">
+          <argument key="width">300</argument>
+          <argument key="height">200</argument>
+          <argument key="quality">70</argument>
+          <argument key="format">jpg</argument>
+          <argument key="constraint">true</argument>
+        </argument>
+      </call>
+      <call method="addFormat">
         <argument>default_small</argument>
         <argument type="collection">
           <argument key="width">100</argument>
@@ -5660,7 +5677,7 @@
       <call method="addFormat">
         <argument>default_big</argument>
         <argument type="collection">
-          <argument key="width">500</argument>
+          <argument key="width">940</argument>
           <argument key="quality">70</argument>
           <argument key="height">false</argument>
           <argument key="format">jpg</argument>
@@ -5741,6 +5758,16 @@
         </argument>
       </call>
       <call method="addFormat">
+        <argument>default_thumbnail</argument>
+        <argument type="collection">
+          <argument key="width">300</argument>
+          <argument key="height">200</argument>
+          <argument key="quality">70</argument>
+          <argument key="format">jpg</argument>
+          <argument key="constraint">true</argument>
+        </argument>
+      </call>
+      <call method="addFormat">
         <argument>default_small</argument>
         <argument type="collection">
           <argument key="width">100</argument>
@@ -5753,7 +5780,7 @@
       <call method="addFormat">
         <argument>default_big</argument>
         <argument type="collection">
-          <argument key="width">500</argument>
+          <argument key="width">940</argument>
           <argument key="quality">70</argument>
           <argument key="height">false</argument>
           <argument key="format">jpg</argument>
@@ -5788,6 +5815,16 @@
         </argument>
       </call>
       <call method="addFormat">
+        <argument>default_thumbnail</argument>
+        <argument type="collection">
+          <argument key="width">300</argument>
+          <argument key="height">200</argument>
+          <argument key="quality">70</argument>
+          <argument key="format">jpg</argument>
+          <argument key="constraint">true</argument>
+        </argument>
+      </call>
+      <call method="addFormat">
         <argument>default_small</argument>
         <argument type="collection">
           <argument key="width">100</argument>
@@ -5800,7 +5837,7 @@
       <call method="addFormat">
         <argument>default_big</argument>
         <argument type="collection">
-          <argument key="width">500</argument>
+          <argument key="width">940</argument>
           <argument key="quality">70</argument>
           <argument key="height">false</argument>
           <argument key="format">jpg</argument>
@@ -5837,6 +5874,16 @@
         </argument>
       </call>
       <call method="addFormat">
+        <argument>default_thumbnail</argument>
+        <argument type="collection">
+          <argument key="width">300</argument>
+          <argument key="height">200</argument>
+          <argument key="quality">70</argument>
+          <argument key="format">jpg</argument>
+          <argument key="constraint">true</argument>
+        </argument>
+      </call>
+      <call method="addFormat">
         <argument>default_small</argument>
         <argument type="collection">
           <argument key="width">100</argument>
@@ -5849,7 +5896,7 @@
       <call method="addFormat">
         <argument>default_big</argument>
         <argument type="collection">
-          <argument key="width">500</argument>
+          <argument key="width">940</argument>
           <argument key="quality">70</argument>
           <argument key="height">false</argument>
           <argument key="format">jpg</argument>

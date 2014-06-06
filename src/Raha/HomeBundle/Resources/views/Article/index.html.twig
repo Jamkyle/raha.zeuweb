@@ -1,51 +1,51 @@
-{% extends '::base.html.twig' %}
-
+{% extends 'RahaHomeBundle::layout.html.twig' %}
+{% block carousel %}
+{% endblock %}
 {% block body -%}
     <h1>Article list</h1>
 
     <table class="records_list">
-        <thead>
-            <tr>
-                <th>Id</th>
-                <th>Date</th>
-                <th>Titre</th>
-                <th>Auteur</th>
-                <th>Contenu</th>
-                <th>Image</th>
-                <th>Tags</th>  
-                <th>Actions</th>
-            </tr>
-        </thead>
         <tbody>
+            <div class="row">
         {% for entity in entities %}
+            
+              <div class="col-sm-6 col-md-4">
+                <div class="thumbnail">
+                  {% if entity.media %}
+                        {% thumbnail entity.media, 'thumbnail' %} {# render the related thumbnail #}
+                    {% endif %}
+                  <div class="caption">
+                    <h3>{{ entity.titre }}</h3>
+                    <p>{% if entity.date %}{{ entity.date|date('Y-m-d H:i:s') }}{% endif %}</p>
+                    <p><a href="{{ path('article_show', { 'id': entity.id }) }}" class="btn btn-primary" role="button">Voir</a> 
+                        {% if is_granted('ROLE_ADMIN') %}
+                            <a href="{{ path('article_edit', { 'id': entity.id }) }}" class="btn btn-default" role="button">Edit</a>
+                            <a href="{{ path('article_delete', { 'id': entity.id }) }}" class="btn btn-default" role="button">Supprimer</a>
+                        {% endif %}
+                    </p>
+
+                  </div>
+                </div>
+              </div>
+           
+
+        <!--
             <tr>
                 <td><a href="{{ path('article_show', { 'id': entity.id }) }}">{{ entity.id }}</a></td>
-                <td>{% if entity.date %}{{ entity.date|date('Y-m-d H:i:s') }}{% endif %}</td>
-                <td>{{ entity.titre }}</td>
+                <td></td>
                 <td>{{ entity.auteur }}</td>
                 <td>{{ entity.contenu }}</td>
-                <td>
-                    {% if entity.media %}
-                        {% thumbnail entity.media, 'small' %} {# render the related thumbnail #}
-                    {% endif %}
-                </td>
+
                 <td>{{ entity.tags }}</td>
-                <td>
-                <ul>
-                    <li>
-                        <a href="{{ path('article_show', { 'id': entity.id }) }}">show</a>
-                    </li>
-                    <li>
-                        <a href="{{ path('article_edit', { 'id': entity.id }) }}">edit</a>
-                    </li>
-                </ul>
-                </td>
-            </tr>
+
+        -->
         {% endfor %}
+         </div>
         </tbody>
     </table>
 
-    <ul class="admin">
+{% if is_granted('ROLE_ADMIN') %}
+    <ul>
         <li>
             <a href="{{ path('article_new', { 'choice' : 'youtube'}) }}">
                 new youtube
@@ -67,4 +67,6 @@
             </a>
         </li>
     </ul>
+{% endif %}
+    
     {% endblock %}

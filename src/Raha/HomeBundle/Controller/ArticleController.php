@@ -10,6 +10,7 @@ use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
 use Sonata\MediaBundle\Model\MediaPreview;
 use Raha\HomeBundle\Entity\Article;
 use Raha\HomeBundle\Form\ArticleType;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Article controller.
@@ -102,6 +103,9 @@ class ArticleController extends Controller
      */
     public function newAction($choice)
     {
+        if (false === $this->get('security.context')->isGranted('ROLE_ADMIN')) {
+        throw new AccessDeniedException();
+    }
         $entity = new Article();
         $entity->setType($choice);
         $form   = $this->createCreateForm($entity);
@@ -150,6 +154,9 @@ class ArticleController extends Controller
      */
     public function editAction($id)
     {
+        if (false === $this->get('security.context')->isGranted('ROLE_ADMIN')) {
+        throw new AccessDeniedException();
+    }
         $em = $this->getDoctrine()->getManager();
 
         $entity = $em->getRepository('RahaHomeBundle:Article')->find($id);
@@ -177,6 +184,7 @@ class ArticleController extends Controller
     */
     private function createEditForm(Article $entity)
     {
+
         $form = $this->createForm(new ArticleType(), $entity, array(
             'action' => $this->generateUrl('article_update', array('id' => $entity->getId())),
             'method' => 'PUT',
@@ -195,6 +203,9 @@ class ArticleController extends Controller
      */
     public function updateAction(Request $request, $id)
     {
+        if (false === $this->get('security.context')->isGranted('ROLE_ADMIN')) {
+        throw new AccessDeniedException();
+    }
         $em = $this->getDoctrine()->getManager();
 
         $entity = $em->getRepository('RahaHomeBundle:Article')->find($id);
@@ -227,17 +238,26 @@ class ArticleController extends Controller
      */
     public function deleteAction(Request $request, $id)
     {
+        if (false === $this->get('security.context')->isGranted('ROLE_ADMIN')) {
+        throw new AccessDeniedException();
+    }
         $form = $this->createDeleteForm($id);
         $form->handleRequest($request);
 
         if ($form->isValid()) {
             $em = $this->getDoctrine()->getManager();
+
             $entity = $em->getRepository('RahaHomeBundle:Article')->find($id);
+            $comments = $em->getRepository('RahaHomeBundle:Comment')->findOneBy(array('article'=>$entity));
 
             if (!$entity) {
                 throw $this->createNotFoundException('Unable to find Article entity.');
             }
 
+           if($comments){
+            $em->remove($comments);
+            }
+            
             $em->remove($entity);
             $em->flush();
         }
@@ -257,7 +277,7 @@ class ArticleController extends Controller
         return $this->createFormBuilder()
             ->setAction($this->generateUrl('article_delete', array('id' => $id)))
             ->setMethod('DELETE')
-            ->add('submit', 'submit', array('label' => 'Delete'))
+            ->add('submit', 'submit', array('label' => 'Supprimer'))
             ->getForm()
         ;
     }

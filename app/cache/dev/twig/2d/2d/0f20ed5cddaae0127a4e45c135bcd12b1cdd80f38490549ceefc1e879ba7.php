@@ -7,16 +7,17 @@ class __TwigTemplate_2d2d0f20ed5cddaae0127a4e45c135bcd12b1cdd80f38490549ceefc1e8
     {
         parent::__construct($env);
 
-        $this->parent = $this->env->loadTemplate("::base.html.twig");
+        $this->parent = $this->env->loadTemplate("RahaHomeBundle::layout.html.twig");
 
         $this->blocks = array(
+            'carousel' => array($this, 'block_carousel'),
             'body' => array($this, 'block_body'),
         );
     }
 
     protected function doGetParent(array $context)
     {
-        return "::base.html.twig";
+        return "RahaHomeBundle::layout.html.twig";
     }
 
     protected function doDisplay(array $context, array $blocks = array())
@@ -24,64 +25,64 @@ class __TwigTemplate_2d2d0f20ed5cddaae0127a4e45c135bcd12b1cdd80f38490549ceefc1e8
         $this->parent->display($context, array_merge($this->blocks, $blocks));
     }
 
-    // line 3
+    // line 2
+    public function block_carousel($context, array $blocks = array())
+    {
+    }
+
+    // line 4
     public function block_body($context, array $blocks = array())
     {
-        // line 6
+        // line 7
         echo "<article class=\"blog\">
         <header>
             <div class=\"date\"><time datetime=\"";
-        // line 8
+        // line 9
         echo twig_escape_filter($this->env, twig_date_format_filter($this->env, $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "date"), "c"), "html", null, true);
         echo "\">";
         echo twig_escape_filter($this->env, twig_date_format_filter($this->env, $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "date"), "l, F j, Y"), "html", null, true);
         echo "</time></div>
             <h2>";
-        // line 9
+        // line 10
         echo twig_escape_filter($this->env, $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "titre"), "html", null, true);
         echo "</h2>
         </header>
         ";
-        // line 11
+        // line 12
         if (($this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "media") && $this->getAttribute($this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "media"), "providerReference"))) {
-            // line 12
+            // line 13
             echo "
             ";
-            // line 13
-            echo $this->env->getExtension('sonata_media')->media($this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "media"), "reference", array());
             // line 14
+            echo $this->env->getExtension('sonata_media')->media($this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "media"), "reference", array());
+            // line 15
             echo "
         ";
         }
-        // line 16
+        // line 17
         echo "        <div>
             <p>";
-        // line 17
+        // line 18
         echo twig_escape_filter($this->env, $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "contenu"), "html", null, true);
         echo "</p>
         </div>
-        <table class=\"record\">
-            <tr>
-            <th>Tags</th>
-            <td>";
-        // line 22
+      <p>Tags: <span class=\"highlight\">";
+        // line 20
         echo twig_escape_filter($this->env, $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "tags"), "html", null, true);
-        echo "</td>
-            </tr>
-        </table>
+        echo "</span></p>
         <section class=\"comments\" id=\"comments\">
             <section class=\"previous-comments\">
                 <h3>Comments</h3>
                 ";
-        // line 28
+        // line 24
         $this->env->loadTemplate("RahaHomeBundle:Comment:index.html.twig")->display(array_merge($context, array("comments" => (isset($context["comments"]) ? $context["comments"] : $this->getContext($context, "comments")))));
-        // line 29
+        // line 25
         echo "            </section>
            <h3>Add Comment</h3>
                 ";
-        // line 31
+        // line 27
         echo $this->env->getExtension('actions')->renderUri($this->env->getExtension('http_kernel')->controller("RahaHomeBundle:Comment:new", array("article_id" => $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "id"))), array());
-        // line 32
+        // line 28
         echo "        </section>
 
     </article>
@@ -89,25 +90,32 @@ class __TwigTemplate_2d2d0f20ed5cddaae0127a4e45c135bcd12b1cdd80f38490549ceefc1e8
         <ul class=\"record_actions\">
     <li>
         <a href=\"";
-        // line 38
+        // line 34
         echo $this->env->getExtension('routing')->getPath("article");
         echo "\">
             Retour liste d'article
         </a>
     </li>
-    <li>
+    ";
+        // line 38
+        if ($this->env->getExtension('security')->isGranted("ROLE_ADMIN")) {
+            // line 39
+            echo "    <li>
         <a href=\"";
-        // line 43
-        echo twig_escape_filter($this->env, $this->env->getExtension('routing')->getPath("article_edit", array("id" => $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "id"))), "html", null, true);
-        echo "\">
+            // line 40
+            echo twig_escape_filter($this->env, $this->env->getExtension('routing')->getPath("article_edit", array("id" => $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "id"))), "html", null, true);
+            echo "\">
             Modifier
         </a>
     </li>
     <li>";
-        // line 47
-        echo         $this->env->getExtension('form')->renderer->renderBlock((isset($context["delete_form"]) ? $context["delete_form"] : $this->getContext($context, "delete_form")), 'form');
-        echo "</li>
-</ul>
+            // line 44
+            echo             $this->env->getExtension('form')->renderer->renderBlock((isset($context["delete_form"]) ? $context["delete_form"] : $this->getContext($context, "delete_form")), 'form');
+            echo "</li>
+    ";
+        }
+        // line 46
+        echo "</ul>
 ";
     }
 
@@ -123,6 +131,6 @@ class __TwigTemplate_2d2d0f20ed5cddaae0127a4e45c135bcd12b1cdd80f38490549ceefc1e8
 
     public function getDebugInfo()
     {
-        return array (  108 => 47,  101 => 43,  93 => 38,  85 => 32,  83 => 31,  79 => 29,  77 => 28,  68 => 22,  60 => 17,  57 => 16,  53 => 14,  51 => 13,  48 => 12,  46 => 11,  41 => 9,  35 => 8,  31 => 6,  28 => 3,);
+        return array (  118 => 46,  113 => 44,  106 => 40,  103 => 39,  101 => 38,  94 => 34,  86 => 28,  84 => 27,  80 => 25,  78 => 24,  71 => 20,  66 => 18,  63 => 17,  59 => 15,  57 => 14,  54 => 13,  52 => 12,  47 => 10,  41 => 9,  37 => 7,  34 => 4,  29 => 2,);
     }
 }

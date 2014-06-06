@@ -52,3 +52,9 @@ img.large { width: 150px; height: 100px; }
 .comments .comment p { margin-bottom: 0; }
 .comments h3 { background: #eee; padding: 10px; font-size: 20px; margin-bottom: 20px; clear: both; }
 .comments .previous-comments { margin-bottom: 20px; }
+
+.admin_button li{
+  display: inline-block;
+  padding-right: 10px;
+  float:left;
+}

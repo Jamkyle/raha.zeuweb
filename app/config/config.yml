@@ -113,8 +113,9 @@ sonata_media:
                 - sonata.media.provider.file
 
             formats:
+                thumbnail: {width: 300, height: 200 , quality: 70}
                 small: { width: 100 , quality: 70}
-                big:   { width: 500 , quality: 70}
+                big:   { width: 940 , quality: 70}
 
     cdn:
         server:

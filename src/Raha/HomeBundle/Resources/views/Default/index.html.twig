@@ -14,7 +14,7 @@
             {% endif %}
             <div class="snippet">
                 <p>{{ entity.contenu(500) }}</p>
-                <p class="continue"><a href="{{ path('article_show', { 'id': entity.id }) }}">Voir plus...</a></p>
+                <p class="continue"><a href="{{ path('article_show', { 'id': entity.id }) }}" class="btn btn-primary" role="button">Detail</a></p>
             </div>
 
             <footer class="meta">
@@ -23,6 +23,30 @@
             </footer>
         </article>
     {% else %}
+    {% if is_granted('ROLE_ADMIN') %}
+    <ul class='admin_button'>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'youtube'}) }}">
+                new youtube
+            </a>
+        </li>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'dailymotion'}) }}">
+                new dailymotion
+            </a>
+        </li>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'image'}) }}">
+                new image
+            </a>
+        </li>
+        <li>
+            <a href="{{ path('article_new', { 'choice' : 'vimeo'}) }}">
+                new vimeo
+            </a>
+        </li>
+    </ul>
+{% endif %}
         <p>Pas d'article trouve</p>
     {% endfor %}
 {% endblock %}

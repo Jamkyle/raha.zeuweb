@@ -1,5 +1,6 @@
-{% extends '::base.html.twig' %}
-
+{% extends 'RahaHomeBundle::layout.html.twig' %}
+{% block carousel %}
+{% endblock %}
 {% block body -%}
 
 
@@ -16,12 +17,7 @@
         <div>
             <p>{{ entity.contenu }}</p>
         </div>
-        <table class="record">
-            <tr>
-            <th>Tags</th>
-            <td>{{ entity.tags }}</td>
-            </tr>
-        </table>
+      <p>Tags: <span class="highlight">{{ entity.tags }}</span></p>
         <section class="comments" id="comments">
             <section class="previous-comments">
                 <h3>Comments</h3>
@@ -39,11 +35,13 @@
             Retour liste d'article
         </a>
     </li>
+    {% if is_granted('ROLE_ADMIN') %}
     <li>
         <a href="{{ path('article_edit', { 'id': entity.id }) }}">
             Modifier
         </a>
     </li>
     <li>{{ form(delete_form) }}</li>
+    {% endif %}
 </ul>
 {% endblock %}

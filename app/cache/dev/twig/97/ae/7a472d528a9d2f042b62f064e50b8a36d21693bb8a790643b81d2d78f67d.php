@@ -10,6 +10,7 @@ class __TwigTemplate_97ae7a472d528a9d2f042b62f064e50b8a36d21693bb8a790643b81d2d7
         $this->parent = $this->env->loadTemplate("::base.html.twig");
 
         $this->blocks = array(
+            'carousel' => array($this, 'block_carousel'),
             'title' => array($this, 'block_title'),
             'body' => array($this, 'block_body'),
         );
@@ -25,16 +26,21 @@ class __TwigTemplate_97ae7a472d528a9d2f042b62f064e50b8a36d21693bb8a790643b81d2d7
         $this->parent->display($context, array_merge($this->blocks, $blocks));
     }
 
-    // line 3
+    // line 2
+    public function block_carousel($context, array $blocks = array())
+    {
+    }
+
+    // line 4
     public function block_title($context, array $blocks = array())
     {
         echo "About";
     }
 
-    // line 5
+    // line 6
     public function block_body($context, array $blocks = array())
     {
-        // line 6
+        // line 7
         echo "    <header>
         <h1>About TheRahaSite</h1>
     </header>
@@ -64,6 +70,6 @@ class __TwigTemplate_97ae7a472d528a9d2f042b62f064e50b8a36d21693bb8a790643b81d2d7
 
     public function getDebugInfo()
     {
-        return array (  38 => 6,  35 => 5,  29 => 3,);
+        return array (  44 => 7,  41 => 6,  35 => 4,  30 => 2,);
     }
 }

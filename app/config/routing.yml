@@ -1,7 +1,3 @@
-raha_admin:
-    resource: "@RahaAdminBundle/Resources/config/routing.yml"
-    prefix:   /
-
 raha_home:
     resource: "@RahaHomeBundle/Resources/config/routing.yml"
     prefix:   /

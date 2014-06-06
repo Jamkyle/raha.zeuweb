@@ -76,7 +76,7 @@ class __TwigTemplate_5108af58958fda649bb295a3847c07da14ac0134ae56c8c831e5d83caf6
                 <p class=\"continue\"><a href=\"";
             // line 17
             echo twig_escape_filter($this->env, $this->env->getExtension('routing')->getPath("article_show", array("id" => $this->getAttribute((isset($context["entity"]) ? $context["entity"] : $this->getContext($context, "entity")), "id"))), "html", null, true);
-            echo "\">Voir plus...</a></p>
+            echo "\" class=\"btn btn-primary\" role=\"button\">Detail</a></p>
             </div>
 
             <footer class=\"meta\">
@@ -97,6 +97,46 @@ class __TwigTemplate_5108af58958fda649bb295a3847c07da14ac0134ae56c8c831e5d83caf6
         }
         if (!$context['_iterated']) {
             // line 26
+            echo "    ";
+            if ($this->env->getExtension('security')->isGranted("ROLE_ADMIN")) {
+                // line 27
+                echo "    <ul class='admin_button'>
+        <li>
+            <a href=\"";
+                // line 29
+                echo $this->env->getExtension('routing')->getPath("article_new", array("choice" => "youtube"));
+                echo "\">
+                new youtube
+            </a>
+        </li>
+        <li>
+            <a href=\"";
+                // line 34
+                echo $this->env->getExtension('routing')->getPath("article_new", array("choice" => "dailymotion"));
+                echo "\">
+                new dailymotion
+            </a>
+        </li>
+        <li>
+            <a href=\"";
+                // line 39
+                echo $this->env->getExtension('routing')->getPath("article_new", array("choice" => "image"));
+                echo "\">
+                new image
+            </a>
+        </li>
+        <li>
+            <a href=\"";
+                // line 44
+                echo $this->env->getExtension('routing')->getPath("article_new", array("choice" => "vimeo"));
+                echo "\">
+                new vimeo
+            </a>
+        </li>
+    </ul>
+";
+            }
+            // line 50
             echo "        <p>Pas d'article trouve</p>
     ";
         }
@@ -117,6 +157,6 @@ class __TwigTemplate_5108af58958fda649bb295a3847c07da14ac0134ae56c8c831e5d83caf6
 
     public function getDebugInfo()
     {
-        return array (  100 => 26,  91 => 22,  85 => 21,  78 => 17,  74 => 16,  71 => 15,  68 => 14,  64 => 13,  62 => 12,  54 => 9,  47 => 7,  44 => 6,  38 => 5,  35 => 4,  29 => 2,);
+        return array (  140 => 50,  131 => 44,  123 => 39,  115 => 34,  107 => 29,  103 => 27,  100 => 26,  91 => 22,  85 => 21,  78 => 17,  74 => 16,  71 => 15,  68 => 14,  64 => 13,  62 => 12,  54 => 9,  47 => 7,  44 => 6,  38 => 5,  35 => 4,  29 => 2,);
     }
 }

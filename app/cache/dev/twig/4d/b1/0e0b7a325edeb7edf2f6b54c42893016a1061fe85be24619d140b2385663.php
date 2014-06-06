@@ -22,31 +22,36 @@ class __TwigTemplate_4db10e0b7a325edeb7edf2f6b54c42893016a1061fe85be24619d140b23
   <div class=\"container-fluid\">
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class=\"navbar-header\">
+      <button type=\"button\" class=\"navbar-toggle\" data-toggle=\"collapse\" data-target=\"#raha-navbar-collapse\">
+        <span class=\"sr-only\">Toggle navigation</span>
+        <span class=\"icon-bar\"></span>
+        <span class=\"icon-bar\"></span>
+        <span class=\"icon-bar\"></span>
+      </button>
       <a class=\"navbar-brand\" href=\"#\">TheRahaSite</a>
     </div>
 
     <!-- Collect the nav links, forms, and other content for toggling -->
-    <div class=\"collapse navbar-collapse\" id=\"bs-example-navbar-collapse-1\">
+    <div class=\"collapse navbar-collapse\" id=\"raha-navbar-collapse\">
       <ul class=\"nav navbar-nav\">
-
         <li class=\"active\"><a href=\"";
-        // line 14
+        // line 19
         echo $this->env->getExtension('routing')->getPath("raha_home_homepage");
         echo "\"><i class=\"fa fa-home\"></i> Home</a></li>
         <li><a href=\"";
-        // line 15
+        // line 20
         echo $this->env->getExtension('routing')->getPath("raha_about");
         echo "\">About</a></li>
       <ul class=\"nav navbar-nav navbar-right\">
         <li><a href=\"";
-        // line 17
+        // line 22
         echo $this->env->getExtension('routing')->getPath("raha_contact");
         echo "\">Contact</a></li>
         <li class=\"dropdown\">
           <a href=\"#\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">Page<b class=\"caret\"></b></a>
           <ul class=\"dropdown-menu\">
             <li><a href=\"";
-        // line 21
+        // line 26
         echo $this->env->getExtension('routing')->getPath("article");
         echo "\">Article</a></li>
             <li><a href=\"#\">Another action</a></li>
@@ -75,6 +80,6 @@ class __TwigTemplate_4db10e0b7a325edeb7edf2f6b54c42893016a1061fe85be24619d140b23
 
     public function getDebugInfo()
     {
-        return array (  50 => 21,  43 => 17,  38 => 15,  34 => 14,  19 => 1,);
+        return array (  55 => 26,  48 => 22,  43 => 20,  39 => 19,  19 => 1,);
     }
 }

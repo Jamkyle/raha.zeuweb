@@ -1,6 +1,6 @@
 raha_home_homepage:
     pattern:  /
-    defaults: { _controller: RahaHomeBundle:Default:index }
+    defaults: { _controller: RahaHomeBundle:Default:index}
 
 raha_about:
     pattern:  /about
@@ -13,6 +13,10 @@ raha_contact:
     defaults: { _controller: RahaHomeBundle:Default:contact }
     requirements:
         _method: GET|POST
+
+raha_carousel:
+    pattern:  /
+    defaults: { _controller: RahaHomeBundle:Default:carousel }
 
 raha:
     resource: "@RahaHomeBundle/Controller"
